@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rulemma"
+version = "0.2.0"
+description = "Быстрый лемматизатор русского языка и e-commerce запросов на Go с нативными Python-биндингами (CGO), дедупликацией ключей и словарём adj->noun"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+authors = [
+  {name = "Коршиков Дмитрий (Dmitry Korshikov)"},
+  {name = "Gemini"},
+]
+keywords = ["russian", "nlp", "lemmatizer", "morphology", "ecommerce", "seo", "golang"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Natural Language :: Russian",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS",
+  "Programming Language :: Go",
+  "Programming Language :: Python :: 3",
+  "Topic :: Text Processing :: Linguistic",
+]
+
+[project.urls]
+Homepage = "https://github.com/DimaKorshikov/rulemma"
+Repository = "https://github.com/DimaKorshikov/rulemma"
+
+[tool.setuptools]
+package-dir = {"" = "python"}
+include-package-data = false
+
+[tool.setuptools.packages.find]
+where = ["python"]
+include = ["rulemma*"]
+
+[tool.setuptools.package-data]
+rulemma = ["*.so", "*.dylib", "*.dll", "data/*.gz", "data/*.tsv"]

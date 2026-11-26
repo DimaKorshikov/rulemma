@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build CLI & C-shared library
+        run: make build
+
+      - name: Run Go tests with race detector
+        run: go test -v -race ./...
+
+      - name: Run Python native binding tests
+        run: make test-py
+
+      - name: Test pip editable install
+        run: |
+          pip install --no-build-isolation --no-deps .
+          python -c "from rulemma import RuLemma; r = RuLemma(); assert r.backend == 'native'; assert r.semantic_key('зимние кроссовки') == r.semantic_key('кроссовки на зиму'); print('pip install OK:', r.stats())"

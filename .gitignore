@@ -1,0 +1,24 @@
+# Build outputs & binaries
+bin/
+*.so
+*.dylib
+*.dll
+*.h
+build/
+dist/
+*.egg-info/
+python/rulemma/data/
+
+# Python & benchmark venvs
+__pycache__/
+*.py[cod]
+.venv/
+.venv-bench/
+.pytest_cache/
+
+# Raw uncleaned source dicts (generated locally before running tools/build_dicts.py)
+raw_dicts/
+
+# OS & editor files
+.DS_Store
+*.swp

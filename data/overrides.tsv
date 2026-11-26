@@ -1,0 +1,229 @@
+# Human-editable highest-priority Russian & e-commerce lemma overrides
+# Format: word<TAB>lemma<TAB>reason
+# Loaded LAST by rulemma (always wins over base lemmas.tsv.gz).
+
+# Classic pymorphy3 bugs on everyday Russian product nouns
+мороженое	мороженое	substantivized noun (ice cream, not adj мороженый)
+мороженого	мороженое	gen of мороженое
+пирожное	пирожное	substantivized noun
+пирожные	пирожное	pl of пирожное
+пирожных	пирожное	gen pl of пирожное
+шампанское	шампанское	substantivized noun
+шампанского	шампанское	gen of шампанское
+животное	животное	substantivized noun
+животные	животное	pl of животное
+животных	животное	gen pl of животное
+насекомое	насекомое	substantivized noun
+насекомые	насекомое	pl of насекомое
+насекомых	насекомое	gen pl of насекомое
+кружка	кружка	pymorphy3: кружок (gent)
+кружки	кружка	plural of кружка
+кружку	кружка	acc of кружка
+кружкой	кружка	ins of кружка
+кружек	кружка	gen pl of кружка
+кружкам	кружка	dat pl of кружка
+кружками	кружка	ins pl of кружка
+кружках	кружка	loc pl of кружка
+спрей	спрей	pymorphy3: спреть (verb impr)
+спрея	спрей	gen of спрей
+спреи	спрей	pl of спрей
+спреев	спрей	gen pl of спрей
+майка	майка	pymorphy3: майк (Name)
+майки	майка	pl of майка
+майку	майка	acc of майка
+маек	майка	gen pl of майка
+планка	планка	pymorphy3: планк (Surn)
+планки	планка	pl of планка
+планку	планка	acc of планка
+планок	планка	gen pl of планка
+петля	петля	pymorphy3: петлить (grnd)
+петли	петля	pl of петля
+петель	петля	gen pl of петля
+математика	математика	pymorphy3: математик (gent)
+математики	математика	gen of математика
+математике	математика	dat of математика
+математику	математика	acc of математика
+кофемашина	кофемашина	pymorphy3: кофемашин (Surn)
+кофемашины	кофемашина	pl of кофемашина
+кофемашину	кофемашина	acc of кофемашина
+кофемашин	кофемашина	gen pl of кофемашина
+душ	душ	pymorphy3: душа (gen pl)
+душа	душ	context: e-commerce душ
+душевая	душевой	adj
+гарнитур	гарнитур	pymorphy3: гарнитура
+гарнитуры	гарнитур	pl
+туя	туя	pymorphy3: туй (Geox)
+туи	туя	pl of туя
+калина	калина	pymorphy3: калин
+астра	астра	pymorphy3: астр (Name)
+фаркоп	фаркоп	pymorphy3: фаркопа
+фаркопы	фаркоп	pl of фаркоп
+фаркопа	фаркоп	gen of фаркоп
+сайдинг	сайдинг	pymorphy3: сайдинга
+сайдинга	сайдинг	gen of сайдинг
+рестайлинг	рестайлинг	pymorphy3: рестайлинга
+трансформер	трансформер	pymorphy3: трансформера
+трансформеры	трансформер	pl of трансформер
+сип	сип	pymorphy3: сипнуть
+сим	сим	pymorphy3: сие (sim-card)
+печенье	печенье	keep -нье spelling
+варенье	варенье	keep -нье spelling
+сиденье	сиденье	keep -нье spelling
+белье	белье	keep -ье spelling
+поло	поло	pymorphy3: полый (adjs)
+худи	худи	pymorphy3: худить (verb)
+боди	боди	pymorphy3: бодить (verb)
+кигуруми	кигуруми	pymorphy3: кигуруметь
+бикини	бикини	indeclinable
+кимоно	кимоно	indeclinable
+пальто	пальто	indeclinable
+кашпо	кашпо	indeclinable
+эндуро	эндуро	pymorphy3: эндурый
+лайт	лайт	pymorphy3: лайта
+слим	слим	pymorphy3: слить
+роял	роял	pymorphy3: роять
+беби	беби	pymorphy3: бести
+бейби	бейби	pymorphy3: бейбить
+личи	личи	pymorphy3: личить
+фило	фило	pymorphy3: фить
+баунти	баунти	pymorphy3: баунтить
+монтессори	монтессори	pymorphy3: монтессорить
+йети	йети	pymorphy3: йести
+бравл	бравл	pymorphy3: бравть
+кбжу	кбжу	pymorphy3: кбзить
+бпла	бпла	pymorphy3: бпнуть
+ншви	ншви	pymorphy3: ншвить
+полива	полив	gen of полив (guard)
+калия	калий	gen of калий (guard)
+газа	газ	gen of газ (guard)
+мышка	мышка	diminutive guard
+мышки	мышка	pl of мышка
+мышку	мышка	acc of мышка
+мышек	мышка	gen pl of мышка
+подушка	подушка	noun guard
+подушки	подушка	pl of подушка
+игрушка	игрушка	noun guard
+игрушки	игрушка	pl of игрушка
+рубашка	рубашка	noun guard
+футболка	футболка	noun guard
+куртка	куртка	noun guard
+сумка	сумка	noun guard
+чашка	чашка	noun guard
+ложка	ложка	noun guard
+вилка	вилка	noun guard
+машинка	машинка	noun guard
+пилка	пилка	noun guard
+щетка	щетка	noun guard
+тумба	тумба	noun guard
+маска	маска	noun guard
+доска	доска	noun guard
+краска	краска	noun guard
+леска	леска	noun guard
+паста	паста	noun guard
+
+# Public consumer brands & loanwords frequently mangled by pymorphy3
+сяоми	сяоми	pymorphy3: сяомь
+ксиоми	ксиоми	pymorphy3: ксиомь
+ксяоми	ксяоми	pymorphy3: ксяомь
+ксиаоми	ксиаоми	pymorphy3: ксиаомь
+шаоми	шаоми	pymorphy3: шаомь
+хуавей	хуавей	pymorphy3: хуавеять
+хендай	хендай	pymorphy3: хендать
+хундай	хундай	pymorphy3: хундать
+хонор	хонор	pymorphy3: хонора
+реалми	реалми	pymorphy3: реалмить
+рилми	рилми	pymorphy3: рилмить
+галакси	галакси	pymorphy3: галаксить
+гелакси	гелакси	pymorphy3: гелаксить
+макита	макита	pymorphy3: макит
+ресанта	ресанта	pymorphy3: ресант
+хутер	хутер	pymorphy3: хутереть
+дрими	дрими	pymorphy3: дринять
+сони	сони	pymorphy3: соня
+лего	лего	indeclinable brand
+самсунг	самсунг	brand
+айфон	айфон	brand/line
+айфоны	айфон	pl of айфон
+айфона	айфон	gen of айфон
+айпад	айпад	brand/line
+макбук	макбук	brand/line
+эйрподс	эйрподс	brand/line
+эппл	эппл	brand
+эпл	эпл	brand
+асус	асус	brand
+леново	леново	brand
+адидас	адидас	brand
+найк	найк	brand
+найки	найк	brand pl
+рибок	рибок	brand
+пума	пума	brand
+асикс	асикс	brand
+дайсон	дайсон	brand
+филипс	филипс	brand
+тефаль	тефаль	pymorphy3: тефаля
+индезит	индезит	pymorphy3: индезита
+аквафор	аквафор	pymorphy3: аквафора
+старлайн	старлайн	pymorphy3: старлайна
+голдстар	голдстар	pymorphy3: голдстарый
+диор	диор	pymorphy3: диора
+шанель	шанель	brand
+эстель	эстель	brand
+золла	золла	pymorphy3: золл
+эконика	эконика	pymorphy3: эконик
+аскона	аскона	pymorphy3: аскон
+комус	комус	pymorphy3: комуса
+летуаль	летуаль	pymorphy3: летуаля
+лэтуаль	лэтуаль	brand
+солгар	солгар	pymorphy3: солгарин
+бакси	бакси	pymorphy3: баксить
+валберис	валберис	store
+валдберис	валдберис	store
+валдбериес	валдбериес	store
+вайлдберриз	вайлдберриз	store
+озон	озон	store
+авито	авито	store
+леруа	леруа	store
+мерлен	мерлен	store
+лемана	лемана	store
+иксора	иксора	store
+дром	дром	store
+ламода	ламода	store
+мвидео	мвидео	store
+спортмастер	спортмастер	store
+
+# Common pharma/cosmetics INN words ending in -ил/-ол/-орб hallucinated as verbs/femn
+афобазол	афобазол	pymorphy3: афобазола
+полисорб	полисорб	pymorphy3: полисорба
+энтерофурил	энтерофурил	pymorphy3: энтерофурить
+миноксидил	миноксидил	pymorphy3: миноксидить
+фенистил	фенистил	pymorphy3: фенистить
+кардиомагнил	кардиомагнил	pymorphy3: кардиомагнить
+бисопролол	бисопролол	pymorphy3: бисопролоть
+силденафил	силденафил	pymorphy3: силденафить
+стиллавит	стиллавит	pymorphy3: стиллавить
+фунгодерил	фунгодерил	pymorphy3: фунгодерить
+инозитол	инозитол	pharma noun
+псиллиум	псиллиум	pharma noun
+левомеколь	левомеколь	pharma noun
+альфазокс	альфазокс	pharma noun
+
+# OpenCorpora missing masculine nouns parsed as archaic feminine genitive plural
+энзим	энзим
+энзимы	энзим
+энзимов	энзим
+хелат	хелат
+хелаты	хелат
+шиммер	шиммер
+флизелин	флизелин
+флок	флок
+ультралайт	ультралайт
+шампань	шампань
+сад	сад
+сады	сад
+град	град
+запад	запад
+чад	чад
+осел	осел
+ванная	ванная
+столовая	столовая
+кондитерская	кондитерская
