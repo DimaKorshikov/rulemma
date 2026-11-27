@@ -36,7 +36,7 @@ class TestRuLemmaPython(unittest.TestCase):
 
     def test_backend_version_and_abi(self) -> None:
         self.assertEqual(self.lem.backend, "native")
-        self.assertEqual(__version__, "0.3.0")
+        self.assertEqual(__version__, "0.3.1")
         self.assertEqual(self.lem.abi_version, 1)
         self.assertEqual(self.lem.library_version, __version__)
         st = self.lem.stats()
@@ -499,6 +499,62 @@ class TestRuLemmaPython(unittest.TestCase):
         ]:
             self.assertEqual(preposition(p, nw), want)
             self.assertEqual(self.lem.preposition(p, nw), want)
+
+    def test_v031_inbox_fixes_and_inferred_morph(self) -> None:
+        # Dictionary / adj_noun fixes
+        self.assertEqual(self.lem.word("креслах"), "кресло")
+        self.assertEqual(self.lem.word("картхолдеру"), "картхолдер")
+        self.assertEqual(self.lem.word("ледобуре"), "ледобур")
+        self.assertEqual(self.lem.word("метл"), "метл")
+        self.assertEqual(self.lem.word("тайтсов"), "тайтсы")
+        self.assertEqual(self.lem.adj_to_noun("жёлтый"), ("желтый", False))
+        self.assertEqual(self.lem.adj_to_noun("фиолетовый"), ("фиолетовый", False))
+        self.assertEqual(self.lem.semantic_key("жёлтый"), "желтый")
+
+        # Function word "это" & inferred morphology on OOV forms
+        eto = self.lem.analyze("это")
+        self.assertEqual(eto["lemma"], "это")
+        self.assertIn(eto["pos"], ("PRCL", "NPRO"))
+        for prep, word in [
+            ("с", "дипломом"),
+            ("с", "высшим"),
+            ("с", "выдачей"),
+            ("с", "академических"),
+            ("с", "господдержкой"),
+            ("к", "фритюрнице"),
+        ]:
+            self.assertTrue(self.lem.prep_governs(prep, word), f"prep_governs({prep!r}, {word!r})")
+        self.assertFalse(self.lem.prep_governs("к", "дипломом"))
+        dip = self.lem.analyze("дипломом")
+        self.assertTrue(dip["known"] and dip.get("inferred"))
+
+        # compact_codes unit guard & keep_words priority over custom stopwords
+        self.assertEqual(
+            self.lem.key("робот-пылесос roborock qrevo 5 л", compact_codes=True),
+            self.lem.key("робот-пылесос roborock qrevo на 5 л", compact_codes=True),
+        )
+        self.assertEqual(
+            self.lem.key("класс а", profile="technical", stopwords={"а", "в"}, keep_words=("а",)),
+            "а класс",
+        )
+
+        # One-pass lemmatize_all with v0.3 technical profile & key options (native vs CLI parity)
+        samples = [
+            "робот-пылесос roborock qrevo 5 л",
+            "зимние ботинки б/у",
+            "кофе без сахара с молоком",
+        ]
+        res_nat = self.lem.lemmatize_all(
+            samples, profile="technical", compact_codes=True, preserve_prep_bindings=True
+        )
+        self.assertEqual(res_nat[0][1], "5 qrevo roborock л робот-пылесос")
+        self.assertEqual(res_nat[1], ("зимний ботинок б у", "б/у ботинок зимний", "б/у ботинок зима"))
+        self.assertEqual(res_nat[2][2], "без_сахар кофе молоко")
+        with RuLemma(workers=2, prefer_native=False) as cli_lem:
+            res_cli = cli_lem.lemmatize_all(
+                samples, profile="technical", compact_codes=True, preserve_prep_bindings=True
+            )
+            self.assertEqual(res_cli, res_nat)
 
     def test_batch_and_latency(self) -> None:
         batch = ["зимние кроссовки найк", "кроссовки на зиму найк", "спрей от комаров детский", "кофемашина хуавей"] * 2500

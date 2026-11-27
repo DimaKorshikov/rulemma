@@ -484,6 +484,12 @@ func (l *Lemmatizer) fallbackSuffix(w string) (string, bool) {
 				if lm, ok := l.tryCanon(stem+"ий", stem+"ой", stem+"ый"); ok {
 					return lm, true
 				}
+				// Superlative adjectives mapped to base degree in l.lemmas (e.g. высший->высокий, лучшего->хороший)
+				if strings.HasSuffix(stem, "ш") {
+					if mapped, ok := l.lemmas[stem+"ий"]; ok && (strings.HasSuffix(mapped, "ый") || strings.HasSuffix(mapped, "ий") || strings.HasSuffix(mapped, "ой")) {
+						return mapped, true
+					}
+				}
 			}
 		}
 	}
@@ -522,7 +528,13 @@ func (l *Lemmatizer) fallbackSuffix(w string) (string, bool) {
 	if strings.HasSuffix(w, "ей") {
 		stem := strings.TrimSuffix(w, "ей")
 		if utf8.RuneCountInString(stem) >= 4 && !endsWithCyrVowel(stem) {
-			if lm, ok := l.tryCanon(stem+"ий", stem+"ый", stem+"ь", stem+"я", stem+"е"); ok {
+			// After sibilants/ц (ж, ш, ч, щ, ц), 1st-declension feminine -а nouns take instrumental -ей (выдача -> выдачей)
+			lastR, _ := utf8.DecodeLastRuneInString(stem)
+			if lastR == 'ж' || lastR == 'ш' || lastR == 'ч' || lastR == 'щ' || lastR == 'ц' {
+				if lm, ok := l.tryCanon(stem+"а", stem+"ий", stem+"ый", stem+"ь", stem+"я", stem+"е"); ok {
+					return lm, true
+				}
+			} else if lm, ok := l.tryCanon(stem+"ий", stem+"ый", stem+"ь", stem+"я", stem+"е"); ok {
 				return lm, true
 			}
 		}

@@ -796,54 +796,92 @@ class RuLemma:
         return out  # type: ignore[return-value]
 
     def lemmatize_all(
-        self, texts: Iterable[str], *, stopwords: Iterable[str] | None = None
+        self,
+        texts: Iterable[str],
+        *,
+        stopwords: Iterable[str] | None = None,
+        profile: str | None = None,
+        normalize_homoglyphs: bool = True,
+        split_hyphens: bool = False,
+        split_number_unit: bool = True,
+        compact_codes: bool = False,
+        preserve_prep_bindings: bool = False,
+        bind_purpose_prep: bool = False,
+        keep_words: Iterable[str] | None = None,
+        exclude_adj_to_noun: Iterable[str] | None = None,
     ) -> list[tuple[str, str, str]]:
-        """Return (lemmatized_text, lemma_key, semantic_key) triples in a single parallel Go pass."""
+        """Return (lemmatized_text, lemma_key, semantic_key) triples in a single parallel Go pass.
+
+        Without profile/key options the legacy v0.2 keys are returned unchanged. With profile="technical"
+        or any key option (compact_codes, preserve_prep_bindings, keep_words, ...) both key columns are built
+        with the same options as key()/keys_batch().
+        """
         items = list(texts)
         n = len(items)
         if n == 0:
             return []
-        # Process large batches in 50k chunks + in-place tuple conversion to keep peak RAM lower than 3 separate calls.
-        chunk_size = 50_000
-        if n <= chunk_size:
-            if self._native is not None:
-                rows = (
-                    self._native.batch(self._handle, items, mode=4, workers=self.workers)
-                    if stopwords is None
-                    else self._native.batch_stop(self._handle, items, mode=4, stopwords=stopwords, workers=self.workers)
-                )
-            else:
-                rows = self._cli_lines(items, mode="all", stopwords=stopwords)
-            out: list[Any] = rows
-            for i, r in enumerate(rows):
-                parts = r.split("\t")
-                if len(parts) >= 3:
-                    out[i] = (parts[0], parts[1], parts[2])
-                elif len(parts) == 2:
-                    out[i] = (parts[0], parts[1], "")
-                else:
-                    out[i] = (r, "", "")
-            return out  # type: ignore[return-value]
+        use_ex = (bool(profile) and profile != "default") or bool(
+            split_hyphens or compact_codes or preserve_prep_bindings or bind_purpose_prep or keep_words or exclude_adj_to_noun
+        )
+        if use_ex:
+            opts = self._build_key_opts(
+                semantic=False,
+                profile=profile or "default",
+                stopwords=stopwords,
+                normalize_homoglyphs=normalize_homoglyphs if (profile and profile != "default") else False,
+                split_hyphens=split_hyphens,
+                split_number_unit=split_number_unit if (profile and profile != "default") else False,
+                compact_codes=compact_codes,
+                preserve_prep_bindings=preserve_prep_bindings,
+                bind_purpose_prep=bind_purpose_prep,
+                keep_words=keep_words,
+                exclude_adj_to_noun=exclude_adj_to_noun,
+            )
 
-        result: list[tuple[str, str, str]] = []
-        for start in range(0, n, chunk_size):
-            chunk = items[start : start + chunk_size]
+        def fetch(chunk: list[str]) -> list[str]:
+            if use_ex:
+                if self._native is not None and getattr(self._native, "_has_batch_all_ex", False):
+                    return self._native.batch_all_ex(self._handle, chunk, opts, workers=self.workers)
+                return self._cli_lines(
+                    chunk,
+                    mode="all",
+                    stopwords=stopwords,
+                    profile=profile,
+                    split_hyphens=split_hyphens,
+                    compact_codes=compact_codes,
+                    bind_preps=preserve_prep_bindings,
+                    bind_purpose=bind_purpose_prep,
+                    keep_words=keep_words,
+                    exclude_adj_to_noun=exclude_adj_to_noun,
+                )
             if self._native is not None:
-                rows = (
+                return (
                     self._native.batch(self._handle, chunk, mode=4, workers=self.workers)
                     if stopwords is None
                     else self._native.batch_stop(self._handle, chunk, mode=4, stopwords=stopwords, workers=self.workers)
                 )
-            else:
-                rows = self._cli_lines(chunk, mode="all", stopwords=stopwords)
-            for r in rows:
-                parts = r.split("\t")
-                if len(parts) >= 3:
-                    result.append((parts[0], parts[1], parts[2]))
-                elif len(parts) == 2:
-                    result.append((parts[0], parts[1], ""))
-                else:
-                    result.append((r, "", ""))
+            return self._cli_lines(chunk, mode="all", stopwords=stopwords)
+
+        def to_triple(r: str) -> tuple[str, str, str]:
+            parts = r.split("\t")
+            if len(parts) >= 3:
+                return (parts[0], parts[1], parts[2])
+            if len(parts) == 2:
+                return (parts[0], parts[1], "")
+            return (r, "", "")
+
+        # Process large batches in 50k chunks + in-place tuple conversion to keep peak RAM lower than 3 separate calls.
+        chunk_size = 50_000
+        if n <= chunk_size:
+            out: list[Any] = fetch(items)
+            for i, r in enumerate(out):
+                out[i] = to_triple(r)
+            return out  # type: ignore[return-value]
+
+        result: list[tuple[str, str, str]] = []
+        for start in range(0, n, chunk_size):
+            rows = fetch(items[start : start + chunk_size])
+            result.extend(to_triple(r) for r in rows)
             del rows
         return result
 

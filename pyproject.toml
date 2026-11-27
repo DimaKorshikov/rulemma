@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rulemma"
-version = "0.3.0"
+version = "0.3.1"
 description = "Быстрый лемматизатор русского языка и e-commerce запросов на Go с нативными Python-биндингами (CGO), дедупликацией ключей и словарём adj->noun"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -27,8 +27,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/DimaKorshikov/rulemma"
+Homepage = "https://rulemma.ru/"
 Repository = "https://github.com/DimaKorshikov/rulemma"
+Changelog = "https://github.com/DimaKorshikov/rulemma/blob/main/CHANGELOG.md"
+Issues = "https://github.com/DimaKorshikov/rulemma/issues"
 
 [tool.setuptools]
 package-dir = {"" = "python"}

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "dict_version": "2026.11.4",
+  "dict_version": "2026.11.5",
   "engine_min_version": "0.3.0",
   "files": {
     "lemmas": "lemmas.tsv.gz",
@@ -13,23 +13,23 @@
     "overrides": "overrides.tsv"
   },
   "counts": {
-    "lemmas": 204993,
+    "lemmas": 214196,
     "adj_forms": 74098,
     "types": 4669,
-    "adj_noun": 4010,
-    "morph": 117022,
-    "alt_lemmas": 11158,
+    "adj_noun": 3960,
+    "morph": 127163,
+    "alt_lemmas": 11909,
     "paradigms": 44819,
-    "overrides": 464
+    "overrides": 470
   },
   "sha256": {
-    "lemmas.tsv.gz": "acc0199c3f6fcfa1b1b3011a1026d4df929fc87811216a97ddfd6e38a17da3d1",
-    "adj_forms.tsv.gz": "c8c4c046fc1ef67876b306743b5f2e32f46e93b03be60de5593455bf613df78a",
-    "types.tsv.gz": "a4bb52dd9f2a416ba9b74a84855eb627b9dbd713f3fe85ef56b736d36aaa2298",
-    "adj_noun.tsv.gz": "54dfb6cb7dc6058f19d107cd137f8beb0d75d90560979001a95596d4d713ae1f",
-    "morph.tsv.gz": "f020e68aa39ab493b1d4f84645492086fbe5fc39a534bfe6f4955d07da330da1",
-    "alt_lemmas.tsv.gz": "600458f13b00deac72c8b08159f806d446f19422096057b3228e07b7a81a0235",
-    "paradigms.tsv.gz": "789ae844ad884b3c3f63f07d84bbde542300f77b8cecb65178b4eea5af98496a",
-    "overrides.tsv": "fad5986f421541cc73161a7a6135caf6798b5ee4730f1c190db5ba5f4d460e39"
+    "lemmas.tsv.gz": "ff5c0ffe5b5b5f4ded5819652ffcd5ec7b1609c97898451b4a889ae9b4810a3e",
+    "adj_forms.tsv.gz": "fbd3b01632f2190f680a0aa5f4b88afd7d9bcd8a2b0aa7995bf0203abc566229",
+    "types.tsv.gz": "2eac729e592a492107ffe3ec109a02fee3dd5549912560a18ad9547bbcf52e52",
+    "adj_noun.tsv.gz": "11df30ea587b7cbe71da11be3b940f4d76062f4a0630eeda63026dc2eba9196b",
+    "morph.tsv.gz": "80c15d887386ce0b4b71d2a5d7cf405646ecadca7cfa93611d6df556a88cdefa",
+    "alt_lemmas.tsv.gz": "d87fe2304dcc3f462df8fcbe816b48292a19209c4d0b39f20869e7d48a2ce9a7",
+    "paradigms.tsv.gz": "e49e085072e7b5c441c9326e8dd112dadc3e292af91bd812855683b29c76a971",
+    "overrides.tsv": "c43e0f35266b4b5cfdfb9864eeaa63c492d4013a9af267a834a8e4398fc6af7d"
   }
 }

@@ -163,3 +163,10 @@ agree_adjective	складные	Нож	складной
 agree_adjective	переносные	Фонарь	переносной
 build_seo_name	Купальники|купальники|100	женский|раздельный	Купальники, женские, раздельные
 build_seo_name	Триммер|триммер|100	беспроводной	Триммер, беспроводной
+
+# --- v0.3.1: basic color & drift guards in adj_noun ---
+semantic_key_neq	желтый диван	желтизна диван	neq
+semantic_key_neq	фиолетовый рюкзак	фиогод рюкзак	neq
+semantic_key_neq	обрезная доска	обрезок доски	neq
+semantic_key_neq	плоский телевизор	плоскость телевизор	neq
+semantic_key_neq	коленчатый вал	коленка вал	neq

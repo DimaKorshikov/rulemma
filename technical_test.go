@@ -182,6 +182,28 @@ func TestPrepositionBindingsAndGuards(t *testing.T) {
 	if got := lem.KeyWithOptions("отдых в 2025 году", codeOpts); got != "2025 год отдых" {
 		t.Errorf("CompactCodes polluted preposition+year: got %q", got)
 	}
+	// v0.3.1: CompactCodes must NOT merge word+number before a measurement unit ("roborock qrevo 5 л")
+	if a, b := lem.KeyWithOptions("робот-пылесос roborock qrevo 5 л", codeOpts),
+		lem.KeyWithOptions("робот-пылесос roborock qrevo на 5 л", codeOpts); a != b {
+		t.Errorf("CompactCodes unit guard failed: %q != %q", a, b)
+	}
+
+	// v0.3.1: KeepWords must take priority over custom StopWords ("класс а")
+	kwStopOpts := rulemma.KeyOptions{
+		Semantic:  true,
+		Profile:   "technical",
+		StopWords: rulemma.MakeStopWords([]string{"а", "в"}),
+		KeepWords: rulemma.MakeStopWords([]string{"а"}),
+	}
+	if got := lem.KeyWithOptions("класс а", kwStopOpts); got != "а класс" {
+		t.Errorf("KeepWords over custom StopWords got %q, want %q", got, "а класс")
+	}
+
+	// v0.3.1: LemmatizeAllWithOptions matches LemmatizeString + KeyWithOptions (lemma/semantic)
+	txt, lk, sk := lem.LemmatizeAllWithOptions("зимние ботинки б/у", rulemma.KeyOptions{Profile: "technical"})
+	if txt != "зимний ботинок б у" || lk != "б/у ботинок зимний" || sk != "б/у ботинок зима" {
+		t.Errorf("LemmatizeAllWithOptions got (%q, %q, %q)", txt, lk, sk)
+	}
 }
 
 func TestDefaultKeyBackwardCompatibility(t *testing.T) {

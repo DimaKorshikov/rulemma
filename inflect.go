@@ -259,7 +259,7 @@ func (l *Lemmatizer) Inflect(word, targetCase, targetNumber string) (string, boo
 			effNum = "plur"
 		} else if effNum == "" {
 			// Preserve input word's number when unspecified
-			if bits, has := l.lookupMorphBits(low); has {
+			if bits, has := l.morphBits(low); has {
 				nCode := int((bits & morphNumberMask) >> morphNumberShift)
 				if nCode == 2 { // plur
 					effNum = "plur"
@@ -290,7 +290,7 @@ func (l *Lemmatizer) Inflect(word, targetCase, targetNumber string) (string, boo
 		// Detect input gender/number when unspecified
 		gender := "masc"
 		effNum := numWant
-		if bits, has := l.lookupMorphBits(low); has {
+		if bits, has := l.morphBits(low); has {
 			gIdx := int((bits & morphGenderMask) >> morphGenderShift)
 			if gIdx > 0 && gIdx < len(genderNames) {
 				gender = genderNames[gIdx]
@@ -493,7 +493,7 @@ func (l *Lemmatizer) InflectPhrase(phrase, targetCase, targetNumber string) (str
 	if head.ref.flags&pfPltm != 0 {
 		effNum = "plur"
 	} else if effNum == "" {
-		if bits, has := l.lookupMorphBits(head.low); has && int((bits&morphNumberMask)>>morphNumberShift) == 2 {
+		if bits, has := l.morphBits(head.low); has && int((bits&morphNumberMask)>>morphNumberShift) == 2 {
 			effNum = "plur"
 		} else {
 			effNum = "sing"

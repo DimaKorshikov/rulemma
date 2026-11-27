@@ -92,6 +92,35 @@ func TestAnalyzeAndHomonymCandidates(t *testing.T) {
 	if oov.Known || oov.POS != "" || oov.Source != rulemma.SourceOOV {
 		t.Errorf("Analyze(OOV) expected Known=false Source=oov, got %+v", oov)
 	}
+
+	// v0.3.1: function word "это" resolves as PRCL/NPRO (not ADJF этот)
+	eto := lem.Analyze("это")
+	if !eto.Known || eto.Lemma != "это" || (eto.POS != "PRCL" && eto.POS != "NPRO") {
+		t.Errorf("Analyze(это) expected lemma=это PRCL/NPRO, got %+v", eto)
+	}
+
+	// v0.3.1: paradigm / superlative / compound-tail inferred morphology on OOV forms
+	for _, tc := range []struct {
+		prep string
+		word string
+		want bool
+	}{
+		{"с", "дипломом", true},
+		{"с", "высшим", true},
+		{"с", "выдачей", true},
+		{"с", "академических", true},
+		{"с", "господдержкой", true},
+		{"к", "фритюрнице", true},
+		{"к", "дипломом", false},
+		{"с", "1000", false},
+	} {
+		if got := lem.PrepGoverns(tc.prep, tc.word); got != tc.want {
+			t.Errorf("PrepGoverns(%q, %q) = %v, want %v (info=%+v)", tc.prep, tc.word, got, tc.want, lem.Analyze(tc.word))
+		}
+	}
+	if dip := lem.Analyze("дипломом"); !dip.Known || !dip.Inferred || dip.POS != "NOUN" {
+		t.Errorf("Analyze(дипломом) expected Known+Inferred NOUN, got %+v", dip)
+	}
 }
 
 func TestPrepGoverns(t *testing.T) {

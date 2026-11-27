@@ -324,6 +324,24 @@ func startsWithDigit(s string) bool {
 	return len(s) > 0 && s[0] >= '0' && s[0] <= '9'
 }
 
+// isUnitToken reports whether s is a measurement unit that may follow a number ("л", "кг", "мм", "вт", "шт", "дюйм", "в").
+func isUnitToken(s string) bool {
+	if _, ok := attachedUnits[s]; ok {
+		return true
+	}
+	if _, ok := unambiguousShortUnits[s]; ok {
+		return true
+	}
+	if _, ok := ambiguousShortUnits[s]; ok {
+		return true
+	}
+	switch s {
+	case "шт", "дюйм", "дюйма", "дюймов", "л.с.", "кв.м", "куб.м", "об/мин", "км/ч":
+		return true
+	}
+	return false
+}
+
 type rawTechItem struct {
 	norm      string
 	orig      string
@@ -622,13 +640,14 @@ func TokenizeTechnical(text string, opts TokenizerOptions) []TechToken {
 		}
 	}
 
-	// Second pass: optional CompactCodes for space-separated model codes ("p 6000" -> "p6000", "мб 23" -> "мб23", "ecam 220" -> "ecam220")
+	// Second pass: optional CompactCodes for space-separated model codes ("p 6000" -> "p6000", "мб 23" -> "мб23", "ecam 220" -> "ecam220").
+	// Never merge when the number is followed by a unit ("qrevo 5 л" keeps "5 л" as a volume, not a model code "qrevo5").
 	if opts.CompactCodes && len(raw) >= 2 {
 		merged := make([]rawTechItem, 0, len(raw))
 		for k := 0; k < len(raw); k++ {
 			if k+1 < len(raw) && raw[k].kind == "word" && isModelCodePrefix(raw[k].norm) &&
 				(raw[k+1].kind == "tech_num" || (raw[k+1].kind == "word" && startsWithDigit(raw[k+1].norm))) &&
-				!raw[k+1].isDecimal {
+				!raw[k+1].isDecimal && !(k+2 < len(raw) && isUnitToken(raw[k+2].norm)) {
 				merged = append(merged, rawTechItem{
 					norm: raw[k].norm + raw[k+1].norm,
 					orig: raw[k].orig + " " + raw[k+1].orig,
@@ -705,6 +724,34 @@ func firstRune(s string) rune {
 // KeyWithOptions builds a canonical sorted, deduplicated lemma or semantic key using opt-in v0.3 profiles.
 // When opts.Profile == "" or "default" and no v0.3 flags are enabled, it delegates directly to
 // LemmaKeyWithStop / SemanticKeyWithStop for 100% backward compatibility with v0.2 keys.
+// LemmatizeAllWithOptions returns (lemmatized_text, lemma_key, semantic_key) using opt-in v0.3 key options
+// (technical profile, preposition bindings, keep_words, compact_codes...). The lemmatized text column is
+// identical to LemmatizeString. With zero-value options it is equivalent to LemmatizeAllWithStop.
+func (l *Lemmatizer) LemmatizeAllWithOptions(text string, opts KeyOptions) (lemText, lemmaKey, semanticKey string) {
+	if !keyOptionsActive(opts) {
+		stop := opts.StopWords
+		if stop == nil {
+			stop = DefaultKeyStopWords
+		}
+		return l.LemmatizeAllWithStop(text, stop)
+	}
+	o1 := opts
+	o1.Semantic = false
+	o2 := opts
+	o2.Semantic = true
+	return l.LemmatizeString(text), l.KeyWithOptions(text, o1), l.KeyWithOptions(text, o2)
+}
+
+func keyOptionsActive(opts KeyOptions) bool {
+	return strings.EqualFold(opts.Profile, "technical") ||
+		opts.Tokenizer.NormalizeHomoglyphs ||
+		opts.Tokenizer.SplitHyphens ||
+		opts.Tokenizer.SplitNumberUnit ||
+		opts.Tokenizer.CompactCodes ||
+		opts.PreservePrepBindings || opts.BindPurposePrep ||
+		len(opts.KeepWords) > 0 || len(opts.ExcludeAdjToNoun) > 0
+}
+
 func (l *Lemmatizer) KeyWithOptions(text string, opts KeyOptions) string {
 	stop := opts.StopWords
 	if stop == nil {
@@ -801,13 +848,23 @@ func (l *Lemmatizer) KeyWithOptions(text string, opts KeyOptions) string {
 			continue
 		}
 
-		// Stop-word check (raw form)
-		if _, skip := stop[t]; skip {
-			continue
+		// KeepWords always win over stop words (custom or default): "класс а" with keep_words={"а"} -> "а класс".
+		_, keepRaw := opts.KeepWords[t]
+		if !keepRaw {
+			if tn := normYo(t); tn != t {
+				_, keepRaw = opts.KeepWords[tn]
+			}
 		}
-		if tn := normYo(t); tn != t {
-			if _, skip := stop[tn]; skip {
+
+		// Stop-word check (raw form)
+		if !keepRaw {
+			if _, skip := stop[t]; skip {
 				continue
+			}
+			if tn := normYo(t); tn != t {
+				if _, skip := stop[tn]; skip {
+					continue
+				}
 			}
 		}
 
@@ -815,8 +872,10 @@ func (l *Lemmatizer) KeyWithOptions(text string, opts KeyOptions) string {
 		if lm == "" {
 			continue
 		}
-		if _, skip := stop[lm]; skip {
-			continue
+		if _, keepLm := opts.KeepWords[lm]; !keepRaw && !keepLm {
+			if _, skip := stop[lm]; skip {
+				continue
+			}
 		}
 
 		// Optional relational adj -> noun folding with KeepWords / ExcludeAdjToNoun guards

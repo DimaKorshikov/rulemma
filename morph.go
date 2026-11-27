@@ -123,6 +123,7 @@ type WordInfo struct {
 	Lemma       string      `json:"lemma"`
 	Source      string      `json:"source"` // override | dict | rule | oov
 	Known       bool        `json:"known"`  // true when grammatical tags came from morph dictionary
+	Inferred    bool        `json:"inferred,omitempty"` // true when tags were inferred from the lemma's inflection paradigm (word absent from morph table)
 	POS         string      `json:"pos"`
 	Gender      string      `json:"gender,omitempty"`
 	Number      string      `json:"number,omitempty"`
@@ -169,7 +170,7 @@ func loadMorphFS(fsys fs.FS) (map[string]uint32, error) {
 		return map[string]uint32{}, nil
 	}
 	data := unsafe.String(unsafe.SliceData(raw), len(raw))
-	out := make(map[string]uint32, 120000)
+	out := make(map[string]uint32, 130000)
 
 	start := 0
 	for start < len(data) {
@@ -306,11 +307,17 @@ func (l *Lemmatizer) Analyze(word string) WordInfo {
 	}
 
 	bits, ok := l.lookupMorphBits(w)
+	inferred := false
+	if !ok {
+		bits, ok = l.inferMorphBits(w)
+		inferred = ok
+	}
 	if !ok {
 		return info
 	}
 
 	info.Known = true
+	info.Inferred = inferred
 	posIdx := int(bits & morphPOSMask)
 	if posIdx > 0 && posIdx < len(posNames) {
 		info.POS = posNames[posIdx]
@@ -377,7 +384,7 @@ func (l *Lemmatizer) PrepGoverns(prep, nextWord string) bool {
 	if nw == "" || utf8.RuneCountInString(nw) <= 1 {
 		return false
 	}
-	bits, found := l.lookupMorphBits(nw)
+	bits, found := l.morphBits(nw)
 	if !found {
 		return false
 	}

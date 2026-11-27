@@ -2,7 +2,7 @@ package rulemma
 
 const (
 	// Version is the semantic version of the rulemma library.
-	Version = "0.3.0"
+	Version = "0.3.1"
 
 	// ABIVersion is the C-ABI contract version exported by capi/librulemma.
 	// It is only incremented on breaking C-ABI changes.

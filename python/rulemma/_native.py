@@ -178,6 +178,18 @@ class NativeLib:
             ]
             lib.rulemma_batch_ex.restype = ctypes.c_void_p
 
+        self._has_batch_all_ex = hasattr(lib, "rulemma_batch_all_ex")
+        if self._has_batch_all_ex:
+            lib.rulemma_batch_all_ex.argtypes = [
+                ctypes.c_int64,
+                ctypes.c_char_p,
+                ctypes.c_int,
+                ctypes.c_char_p,
+                ctypes.c_int,
+                ctypes.POINTER(ctypes.c_int),
+            ]
+            lib.rulemma_batch_all_ex.restype = ctypes.c_void_p
+
         self._has_v03_morph = (
             hasattr(lib, "rulemma_analyze") and hasattr(lib, "rulemma_prep_governs")
         )
@@ -362,6 +374,21 @@ class NativeLib:
         opts_b = json.dumps(opts, ensure_ascii=False).encode("utf-8")
         out_len = ctypes.c_int(0)
         ptr = self._lib.rulemma_batch_ex(
+            handle, payload, len(payload), opts_b, int(workers), ctypes.byref(out_len)
+        )
+        joined = self._take_bytes_n(ptr, int(out_len.value))
+        return joined.split("\n")
+
+    def batch_all_ex(self, handle: int, texts: list[str], opts: dict[str, Any], workers: int) -> list[str]:
+        check_fork_safety()
+        if not texts:
+            return []
+        if not self._has_batch_all_ex:
+            raise RuntimeError("librulemma does not export rulemma_batch_all_ex; rebuild with: make build-lib")
+        payload = "\n".join(str(t).replace("\n", " ").replace("\r", " ") for t in texts).encode("utf-8")
+        opts_b = json.dumps(opts, ensure_ascii=False).encode("utf-8")
+        out_len = ctypes.c_int(0)
+        ptr = self._lib.rulemma_batch_all_ex(
             handle, payload, len(payload), opts_b, int(workers), ctypes.byref(out_len)
         )
         joined = self._take_bytes_n(ptr, int(out_len.value))

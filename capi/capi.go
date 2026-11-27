@@ -512,13 +512,35 @@ func rulemma_batch_ex(h C.int64_t, payload *C.char, payloadLen C.int, optsJSON *
 	if lem == nil {
 		return nil
 	}
+	opts := decodeKeyOptionsC(optsJSON)
+	return runBatchFn(payload, payloadLen, workers, outLen, func(s string) string {
+		return lem.KeyWithOptions(s, opts)
+	})
+}
+
+// rulemma_batch_all_ex returns "lemmatized_text\tlemma_key\tsemantic_key" per line using KeyOptions JSON
+// (one-pass lemmatize_all with the v0.3 technical profile and key options).
+//
+//export rulemma_batch_all_ex
+func rulemma_batch_all_ex(h C.int64_t, payload *C.char, payloadLen C.int, optsJSON *C.char, workers C.int, outLen *C.int) *C.char {
+	lem := getLem(int64(h))
+	if lem == nil {
+		return nil
+	}
+	opts := decodeKeyOptionsC(optsJSON)
+	return runBatchFn(payload, payloadLen, workers, outLen, func(s string) string {
+		txt, key, sem := lem.LemmatizeAllWithOptions(s, opts)
+		return txt + "\t" + key + "\t" + sem
+	})
+}
+
+func runBatchFn(payload *C.char, payloadLen C.int, workers C.int, outLen *C.int, apply func(string) string) *C.char {
 	if payloadLen <= 0 || payload == nil {
 		if outLen != nil {
 			*outLen = 0
 		}
 		return C.CString("")
 	}
-	opts := decodeKeyOptionsC(optsJSON)
 	raw := C.GoStringN(payload, payloadLen)
 	lines := strings.Split(raw, "\n")
 	n := len(lines)
@@ -536,7 +558,7 @@ func rulemma_batch_ex(h C.int64_t, payload *C.char, payloadLen C.int, optsJSON *
 
 	if w == 1 {
 		for i, s := range lines {
-			out[i] = lem.KeyWithOptions(s, opts)
+			out[i] = apply(s)
 		}
 	} else {
 		chunk := (n + w - 1) / w
@@ -554,7 +576,7 @@ func rulemma_batch_ex(h C.int64_t, payload *C.char, payloadLen C.int, optsJSON *
 			go func(a, b int) {
 				defer wg.Done()
 				for i := a; i < b; i++ {
-					out[i] = lem.KeyWithOptions(lines[i], opts)
+					out[i] = apply(lines[i])
 				}
 			}(start, end)
 		}

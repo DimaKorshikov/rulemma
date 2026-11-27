@@ -139,6 +139,7 @@ REQUIRED_TYPES: dict[str, tuple[str, str]] = {
     "берцы": ("", "plur"),
     "угги": ("", "plur"),
     "лосины": ("", "plur"),
+    "тайтсы": ("", "plur"),
 }
 
 # Major Russian hyphenated cities & compound toponyms (all standard oblique cases) so Word()
@@ -579,6 +580,10 @@ def write_tsv_gz(path: Path, rows: list[tuple[str, ...]]) -> None:
             f.write("\t".join(row) + "\n")
 
 
+def clean_types_keys(raw_types: dict) -> list[str]:
+    return [norm_yo(str(k).lower()) for k in raw_types if k] + list(REQUIRED_TYPES)
+
+
 # --- v0.3 Compact Morphology (morph.tsv.gz + alt_lemmas.tsv.gz) & Paradigms (paradigms.tsv.gz) ---
 
 POS_CODES: dict[str, int] = {
@@ -624,7 +629,7 @@ STRICT_PLTM_LEMMAS: frozenset[str] = frozenset({
     "грабли", "вилы", "ворота", "деньги", "сутки", "обои", "шахматы",
     "шашки", "качели", "перила", "чернила", "дрожжи", "макароны",
     "консервы", "переговоры", "финансы", "каникулы", "сумерки", "хлопоты",
-    "сланцы", "берцы", "угги", "лосины",
+    "сланцы", "берцы", "угги", "лосины", "тайтсы",
 })
 
 # One-letter Russian service words guaranteed to carry accurate POS in morph.tsv.gz.
@@ -1122,6 +1127,64 @@ def main() -> None:
     for w, l in COMPOUND_TOPONYM_FORMS.items():
         clean_lemmas[w] = l
         stats["compound_toponym"] += 1
+
+    # v0.3.1: Repair OOV artifacts that poison the dictionary-verified suffix fallback.
+    protected = set(overrides) | set(CORE_EXTRA_WORDS) | set(COMPOUND_TOPONYM_FORMS) | set(clean_types_keys(raw_types))
+    known_cache: dict[str, bool] = {}
+
+    def oc_known(word: str) -> bool:
+        hit = known_cache.get(word)
+        if hit is None:
+            hit = any(is_in_opencorpora(p) for p in morph.parse(word))
+            known_cache[word] = hit
+        return hit
+
+    # (a) OOV masculine genitive forms stored as their own lemma (картхолдера -> картхолдер, ледобура -> ледобур):
+    #     word is unknown to OpenCorpora, ends with -а, base is a canonical masc nominative non-PropN noun,
+    #     and pymorphy recognizes gent-of-base among its parses.
+    for w in sorted(clean_lemmas):
+        if w in protected or clean_lemmas[w] != w or len(w) < 5 or not w.endswith("а") or "-" in w:
+            continue
+        base = w[:-1]
+        if base[-1] not in CONSONANTS or clean_lemmas.get(base) != base or oc_known(w):
+            continue
+        pb = morph.parse(base)[0]
+        if (
+            norm_yo(pb.normal_form) == base
+            and pb.tag.POS == "NOUN"
+            and "masc" in pb.tag
+            and "nomn" in pb.tag
+            and not ("Surn" in pb.tag and base.endswith(("ов", "ев", "ин", "ын")))
+            and not any(g in pb.tag for g in ("Name", "Patr"))
+            and any(norm_yo(p.normal_form) == base and "gent" in p.tag for p in morph.parse(w))
+        ):
+            clean_lemmas[w] = base
+            stats["fix_oov_masc_gent_self_lemma"] += 1
+
+    # (b) Truncated OOV fragments (кресл, метл, академи, алюмини): the form is unknown to OpenCorpora, but appending
+    #     a single vowel/soft sign yields a real dictionary word. Such fragments are dropped instead of being trusted
+    #     as canonical lemmas (кресл) or mapped to invented lemmas (метл -> метло).
+    fragments: list[str] = []
+    for w in sorted(clean_lemmas):
+        if w in protected or len(w) < 3 or "-" in w or oc_known(w):
+            continue
+        lm = clean_lemmas[w]
+        if lm != w and oc_known(lm):
+            continue
+        if any((w + v) in clean_lemmas and oc_known(w + v) for v in ("о", "а", "я", "ы", "и", "ь", "е")):
+            fragments.append(w)
+    for w in fragments:
+        del clean_lemmas[w]
+    stats["drop_oov_fragment"] = len(fragments)
+
+    # (c) Ensure every known canonical target lemma (e.g. выдача from выдачи->выдача) is self-present in clean_lemmas
+    #     so dictionary-verified suffix fallback & paradigm inference can match its unseen oblique forms (выдачей->выдача).
+    added_canon = 0
+    for target in sorted(set(clean_lemmas.values())):
+        if target not in clean_lemmas and CYR_WORD_RE.fullmatch(target) and oc_known(target):
+            clean_lemmas[target] = target
+            added_canon += 1
+    stats["ensure_canonical_target_lemma"] = added_canon
 
     # Re-apply overrides last so ё-variants or toponyms can never overwrite an explicit override
     for w, l in overrides.items():
