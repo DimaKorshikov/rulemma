@@ -1,6 +1,9 @@
 // Package main builds a C-shared library (`librulemma.so` / `librulemma.dylib`) for zero-overhead
 // in-process Python (ctypes/cffi), Rust, C/C++, or Node.js bindings.
 //
+// C-ABI Contract: strictly append-only within the same ABIVersion. Existing exported symbols
+// and mode codes (0..4) never change signatures or semantics.
+//
 // Build:
 //
 //	go build -buildmode=c-shared -o python/rulemma/librulemma.so ./capi
@@ -45,6 +48,27 @@ func getLem(h int64) *rulemma.Lemmatizer {
 	lem := handles[h]
 	handlesMu.RUnlock()
 	return lem
+}
+
+func parseStopWordsC(stopwordsNewline *C.char) map[string]struct{} {
+	if stopwordsNewline == nil {
+		return rulemma.DefaultKeyStopWords
+	}
+	raw := C.GoString(stopwordsNewline)
+	if raw == "" {
+		return map[string]struct{}{}
+	}
+	return rulemma.MakeStopWords(strings.Split(raw, "\n"))
+}
+
+//export rulemma_abi_version
+func rulemma_abi_version() C.int {
+	return C.int(rulemma.ABIVersion)
+}
+
+//export rulemma_version
+func rulemma_version() *C.char {
+	return C.CString(rulemma.Version)
 }
 
 //export rulemma_last_error
@@ -114,6 +138,14 @@ func rulemma_stats(h C.int64_t, outLemmas, outTypes, outAdjForms, outAdjNoun, ou
 	return 1
 }
 
+//export rulemma_normalize_phrase
+func rulemma_normalize_phrase(text *C.char, keepYo C.int) *C.char {
+	if text == nil {
+		return C.CString("")
+	}
+	return C.CString(rulemma.NormalizePhrase(C.GoString(text), keepYo != 0))
+}
+
 //export rulemma_word
 func rulemma_word(h C.int64_t, word *C.char) *C.char {
 	lem := getLem(int64(h))
@@ -141,6 +173,16 @@ func rulemma_lemma_key(h C.int64_t, text *C.char) *C.char {
 	return C.CString(lem.LemmaKey(C.GoString(text)))
 }
 
+//export rulemma_lemma_key_stop
+func rulemma_lemma_key_stop(h C.int64_t, text *C.char, stopwordsNewline *C.char) *C.char {
+	lem := getLem(int64(h))
+	if lem == nil {
+		return nil
+	}
+	stop := parseStopWordsC(stopwordsNewline)
+	return C.CString(lem.LemmaKeyWithStop(C.GoString(text), stop))
+}
+
 //export rulemma_semantic_key
 func rulemma_semantic_key(h C.int64_t, text *C.char) *C.char {
 	lem := getLem(int64(h))
@@ -148,6 +190,16 @@ func rulemma_semantic_key(h C.int64_t, text *C.char) *C.char {
 		return nil
 	}
 	return C.CString(lem.SemanticKey(C.GoString(text)))
+}
+
+//export rulemma_semantic_key_stop
+func rulemma_semantic_key_stop(h C.int64_t, text *C.char, stopwordsNewline *C.char) *C.char {
+	lem := getLem(int64(h))
+	if lem == nil {
+		return nil
+	}
+	stop := parseStopWordsC(stopwordsNewline)
+	return C.CString(lem.SemanticKeyWithStop(C.GoString(text), stop))
 }
 
 //export rulemma_adj_to_noun
@@ -207,15 +259,7 @@ func rulemma_build_seo_name(h C.int64_t, baseName *C.char, productType *C.char, 
 	return C.CString(seo)
 }
 
-// rulemma_batch processes newline-separated UTF-8 texts across parallel Go goroutines (bypassing Python GIL!).
-// mode: 0 = lemmatize text, 1 = lemma_key, 2 = semantic_key, 3 = text\tkey, 4 = text\tkey\tsemkey
-//
-//export rulemma_batch
-func rulemma_batch(h C.int64_t, payload *C.char, payloadLen C.int, mode C.int, workers C.int, outLen *C.int) *C.char {
-	lem := getLem(int64(h))
-	if lem == nil {
-		return nil
-	}
+func runBatch(lem *rulemma.Lemmatizer, payload *C.char, payloadLen C.int, mode C.int, stop map[string]struct{}, workers C.int, outLen *C.int) *C.char {
 	if payloadLen <= 0 || payload == nil {
 		if outLen != nil {
 			*outLen = 0
@@ -242,13 +286,17 @@ func rulemma_batch(h C.int64_t, payload *C.char, payloadLen C.int, mode C.int, w
 	apply := func(s string) string {
 		switch m {
 		case 1:
-			return lem.LemmaKey(s)
+			return lem.LemmaKeyWithStop(s, stop)
 		case 2:
-			return lem.SemanticKey(s)
+			return lem.SemanticKeyWithStop(s, stop)
 		case 3:
-			return lem.LemmatizeString(s) + "\t" + lem.LemmaKey(s)
+			return lem.LemmatizeString(s) + "\t" + lem.LemmaKeyWithStop(s, stop)
 		case 4:
-			return lem.LemmatizeString(s) + "\t" + lem.LemmaKey(s) + "\t" + lem.SemanticKey(s)
+			return lem.LemmatizeString(s) + "\t" + lem.LemmaKeyWithStop(s, stop) + "\t" + lem.SemanticKeyWithStop(s, stop)
+		case 5:
+			return rulemma.NormalizePhrase(s, false)
+		case 6:
+			return rulemma.NormalizePhrase(s, true)
 		default:
 			return lem.LemmatizeString(s)
 		}
@@ -286,6 +334,33 @@ func rulemma_batch(h C.int64_t, payload *C.char, payloadLen C.int, mode C.int, w
 		*outLen = C.int(len(joined))
 	}
 	return C.CString(joined)
+}
+
+// rulemma_batch processes newline-separated UTF-8 texts across parallel Go goroutines (bypassing Python GIL!).
+// mode: 0 = lemmatize text, 1 = lemma_key, 2 = semantic_key, 3 = text\tkey, 4 = text\tkey\tsemkey,
+// 5 = normalize_phrase (ё->е), 6 = normalize_phrase (keep ё).
+//
+//export rulemma_batch
+func rulemma_batch(h C.int64_t, payload *C.char, payloadLen C.int, mode C.int, workers C.int, outLen *C.int) *C.char {
+	lem := getLem(int64(h))
+	if lem == nil {
+		return nil
+	}
+	return runBatch(lem, payload, payloadLen, mode, rulemma.DefaultKeyStopWords, workers, outLen)
+}
+
+// rulemma_batch_stop is the custom stop-words variant of rulemma_batch.
+// stopwordsNewline: NULL uses DefaultKeyStopWords, "" uses an empty stop set,
+// otherwise newline-separated stop words.
+//
+//export rulemma_batch_stop
+func rulemma_batch_stop(h C.int64_t, payload *C.char, payloadLen C.int, mode C.int, stopwordsNewline *C.char, workers C.int, outLen *C.int) *C.char {
+	lem := getLem(int64(h))
+	if lem == nil {
+		return nil
+	}
+	stop := parseStopWordsC(stopwordsNewline)
+	return runBatch(lem, payload, payloadLen, mode, stop, workers, outLen)
 }
 
 func main() {}

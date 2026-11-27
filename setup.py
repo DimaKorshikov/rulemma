@@ -34,14 +34,15 @@ class build_py(_build_py):
             hdr = lib_path.with_suffix(".h")
             if hdr.exists():
                 hdr.unlink()
-        # Copy compact data files into package dir for wheel distribution
-        pkg_data = PKG_DIR / "data"
-        pkg_data.mkdir(exist_ok=True)
-        for fname in ("lemmas.tsv.gz", "adj_forms.tsv.gz", "types.tsv.gz", "adj_noun.tsv.gz", "overrides.tsv"):
-            src = ROOT / "data" / fname
-            if src.exists():
-                shutil.copy2(src, pkg_data / fname)
         super().run()
+        # Copy compact data files into build output for wheel/install without polluting source tree
+        if not self.editable_mode:
+            pkg_data = Path(self.build_lib) / "rulemma" / "data"
+            pkg_data.mkdir(parents=True, exist_ok=True)
+            for fname in ("lemmas.tsv.gz", "adj_forms.tsv.gz", "types.tsv.gz", "adj_noun.tsv.gz", "overrides.tsv", "manifest.json"):
+                src = ROOT / "data" / fname
+                if src.exists():
+                    shutil.copy2(src, pkg_data / fname)
 
 
 setup(cmdclass={"build_py": build_py})

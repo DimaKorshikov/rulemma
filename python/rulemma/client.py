@@ -1,18 +1,42 @@
 """High-level Python interface to rulemma (in-process Go C-shared library + CLI streaming fallback).
 
-Single calls execute directly in-process via Go `librulemma.so` (~1-3 microseconds, zero subprocess spawn).
+Single calls execute directly in-process via Go `librulemma.so` (zero subprocess spawn).
 Batch calls (`lemmatize_batch`, `lemma_keys`, `semantic_keys`) execute in parallel Go goroutines,
-bypassing Python's GIL for multi-million queries/sec throughput!
+bypassing Python's GIL for high-throughput query and catalog processing.
 """
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Iterable
 
 from ._native import NativeLib, find_shared_library
+
+DEFAULT_STOP_WORDS: frozenset[str] = frozenset({
+    "в", "во", "на", "для", "и", "с", "со", "по",
+    "из", "от", "до", "без", "под", "к", "у", "о",
+    "об", "а", "или", "купить", "цена", "цены",
+    "недорого", "дешево", "интернет", "магазин",
+})
+
+_TOKEN_RE = re.compile(r"[a-zа-яё0-9]+(?:-[a-zа-яё0-9]+)*", re.IGNORECASE)
+
+
+def normalize_phrase(text: str, *, keep_yo: bool = False) -> str:
+    """Normalize a Russian/e-commerce phrase identically to Go `rulemma.NormalizePhrase`.
+
+    Lowercases, strips punctuation and repeated whitespace while preserving Cyrillic,
+    Latin, digits, and internal hyphens. Normalizes 'ё' -> 'е' unless keep_yo=True.
+    """
+    toks = _TOKEN_RE.findall(text.lower())
+    if not toks:
+        return ""
+    res = " ".join(toks)
+    return res if keep_yo else res.replace("ё", "е")
 
 
 def _find_data_dir(explicit: str | Path | None = None) -> Path:
@@ -73,6 +97,16 @@ class RuLemma:
         """Return 'native' (in-process CGO shared lib) or 'cli' (subprocess fallback)."""
         return "native" if self._native is not None else "cli"
 
+    @property
+    def abi_version(self) -> int:
+        """Return C-ABI version of the loaded native library (0 when using CLI backend)."""
+        return self._native.abi_version if self._native is not None else 0
+
+    @property
+    def library_version(self) -> str:
+        """Return semantic version reported by the loaded native library."""
+        return self._native.version if self._native is not None else "cli"
+
     def close(self) -> None:
         if self._native is not None and self._handle:
             self._native.free(self._handle)
@@ -97,6 +131,12 @@ class RuLemma:
 
     # --- Single-item microsecond API ---
 
+    def normalize_phrase(self, text: str, *, keep_yo: bool = False) -> str:
+        """Normalize a phrase (lowercase, strip punctuation, optionally preserve 'ё')."""
+        if self._native is not None and self._native._has_normalize:
+            return self._native.normalize_phrase(text, keep_yo=keep_yo)
+        return normalize_phrase(text, keep_yo=keep_yo)
+
     def word(self, token: str) -> str:
         """Lemmatize a single token (ё -> е)."""
         if self._native is not None:
@@ -114,20 +154,24 @@ class RuLemma:
         s = self.lemmatize(text)
         return s.split(" ") if s else []
 
-    def lemma_key(self, text: str) -> str:
-        """Return canonical sorted, deduplicated lemma key (stop words excluded)."""
+    def lemma_key(self, text: str, *, stopwords: Iterable[str] | None = None) -> str:
+        """Return canonical sorted, deduplicated lemma key (excluding default or custom stop words)."""
         if self._native is not None:
-            return self._native.lemma_key(self._handle, text)
-        return self.lemma_keys([text])[0]
+            if stopwords is None:
+                return self._native.lemma_key(self._handle, text)
+            return self._native.lemma_key_stop(self._handle, text, stopwords)
+        return self.lemma_keys([text], stopwords=stopwords)[0]
 
-    def semantic_key(self, text: str) -> str:
+    def semantic_key(self, text: str, *, stopwords: Iterable[str] | None = None) -> str:
         """Return derivational-aware canonical key folding relational adjectives to nouns.
 
         Example: 'зимние кроссовки найк' == 'кроссовки на зиму найк' -> 'зима кроссовок найк'.
         """
         if self._native is not None:
-            return self._native.semantic_key(self._handle, text)
-        return self.semantic_keys([text])[0]
+            if stopwords is None:
+                return self._native.semantic_key(self._handle, text)
+            return self._native.semantic_key_stop(self._handle, text, stopwords)
+        return self.semantic_keys([text], stopwords=stopwords)[0]
 
     def adj_to_noun(self, word: str) -> tuple[str, bool]:
         """Map a relational adjective (any form) to its canonical noun, e.g. 'зимние' -> ('зима', True)."""
@@ -151,7 +195,14 @@ class RuLemma:
 
     # --- High-throughput multi-core Go batch API (GIL-free!) ---
 
-    def _cli_lines(self, texts: list[str], mode: str) -> list[str]:
+    def _cli_lines(
+        self,
+        texts: list[str],
+        mode: str,
+        *,
+        stopwords: Iterable[str] | None = None,
+        keep_yo: bool = False,
+    ) -> list[str]:
         if not self.binary:
             raise FileNotFoundError("rulemma CLI binary not found")
         if not texts:
@@ -161,11 +212,41 @@ class RuLemma:
         cmd = [self.binary, "lemmatize", "--data", self.data_dir, "--workers", str(self.workers), "--mode", mode]
         if self.overrides:
             cmd.extend(["--overrides", self.overrides])
-        proc = subprocess.run(cmd, input=payload, capture_output=True, check=True)
+        if keep_yo:
+            cmd.append("--keep-yo")
+
+        tmp_stop: Path | None = None
+        try:
+            if stopwords is not None:
+                sw_list = [str(w).strip() for w in stopwords if str(w).strip()]
+                if not sw_list:
+                    cmd.extend(["--stopwords", "none"])
+                else:
+                    with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".txt", delete=False) as tf:
+                        tf.write("\n".join(sw_list) + "\n")
+                        tmp_stop = Path(tf.name)
+                    cmd.extend(["--stopwords", str(tmp_stop)])
+            proc = subprocess.run(cmd, input=payload, capture_output=True, check=True)
+        finally:
+            if tmp_stop is not None:
+                try:
+                    tmp_stop.unlink()
+                except OSError:
+                    pass
+
         out = proc.stdout.decode("utf-8").splitlines()
         if len(out) != len(clean):
             raise RuntimeError(f"rulemma returned {len(out)} lines for {len(clean)} inputs")
         return out
+
+    def normalize_batch(self, texts: Iterable[str], *, keep_yo: bool = False) -> list[str]:
+        """Normalize a batch of phrases across parallel Go goroutines."""
+        items = list(texts)
+        if not items:
+            return []
+        if self._native is not None and self._native._has_normalize:
+            return self._native.batch(self._handle, items, mode=6 if keep_yo else 5, workers=self.workers)
+        return [normalize_phrase(s, keep_yo=keep_yo) for s in items]
 
     def lemmatize_batch(self, texts: Iterable[str]) -> list[str]:
         """Lemmatize a batch of texts across parallel Go goroutines (bypasses Python GIL)."""
@@ -179,34 +260,43 @@ class RuLemma:
     # Backward-compatible alias
     lemmatize_list = lemmatize_batch
 
-    def lemma_keys(self, texts: Iterable[str]) -> list[str]:
+    def lemma_keys(self, texts: Iterable[str], *, stopwords: Iterable[str] | None = None) -> list[str]:
         """Return canonical sorted, deduplicated lemma keys for a batch of texts in parallel Go."""
         items = list(texts)
         if not items:
             return []
         if self._native is not None:
-            return self._native.batch(self._handle, items, mode=1, workers=self.workers)
-        return self._cli_lines(items, mode="key")
+            if stopwords is None:
+                return self._native.batch(self._handle, items, mode=1, workers=self.workers)
+            return self._native.batch_stop(self._handle, items, mode=1, stopwords=stopwords, workers=self.workers)
+        return self._cli_lines(items, mode="key", stopwords=stopwords)
 
-    def semantic_keys(self, texts: Iterable[str]) -> list[str]:
+    def semantic_keys(self, texts: Iterable[str], *, stopwords: Iterable[str] | None = None) -> list[str]:
         """Return derivational-aware semantic keys (adj->noun folded) for a batch of texts."""
         items = list(texts)
         if not items:
             return []
         if self._native is not None:
-            return self._native.batch(self._handle, items, mode=2, workers=self.workers)
-        return self._cli_lines(items, mode="semkey")
+            if stopwords is None:
+                return self._native.batch(self._handle, items, mode=2, workers=self.workers)
+            return self._native.batch_stop(self._handle, items, mode=2, stopwords=stopwords, workers=self.workers)
+        return self._cli_lines(items, mode="semkey", stopwords=stopwords)
 
-    def lemmatize_and_keys(self, texts: Iterable[str]) -> list[tuple[str, str]]:
+    def lemmatize_and_keys(
+        self, texts: Iterable[str], *, stopwords: Iterable[str] | None = None
+    ) -> list[tuple[str, str]]:
         """Return (lemmatized_text, lemma_key) pairs in a single parallel Go pass."""
         items = list(texts)
         if not items:
             return []
-        rows = (
-            self._native.batch(self._handle, items, mode=3, workers=self.workers)
-            if self._native is not None
-            else self._cli_lines(items, mode="both")
-        )
+        if self._native is not None:
+            rows = (
+                self._native.batch(self._handle, items, mode=3, workers=self.workers)
+                if stopwords is None
+                else self._native.batch_stop(self._handle, items, mode=3, stopwords=stopwords, workers=self.workers)
+            )
+        else:
+            rows = self._cli_lines(items, mode="both", stopwords=stopwords)
         return [tuple(r.split("\t", 1)) if "\t" in r else (r, "") for r in rows]  # type: ignore[misc]
 
     def lemmatize_tsv(
@@ -217,6 +307,8 @@ class RuLemma:
         col: int = 0,
         mode: str = "both",
         header: bool = True,
+        stopwords: str | Path | None = None,
+        keep_yo: bool = False,
     ) -> str:
         """Stream a large TSV file directly through Go CLI workers (millions of rows/sec)."""
         if not self.binary:
@@ -232,6 +324,10 @@ class RuLemma:
         ]
         if self.overrides:
             cmd.extend(["--overrides", self.overrides])
+        if stopwords is not None:
+            cmd.extend(["--stopwords", str(stopwords)])
+        if keep_yo:
+            cmd.append("--keep-yo")
         if header:
             cmd.append("--header")
         proc = subprocess.run(cmd, capture_output=True, text=True, check=True)

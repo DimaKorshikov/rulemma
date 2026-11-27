@@ -5,8 +5,12 @@
 ## Как исправить лемму для слова
 
 1. Добавьте строку `слово<TAB>лемма` в `data/overrides.tsv` (в нижнем регистре, буква `ё` приводится к `е`).
-2. Добавьте проверку в `lemmatizer_test.go` и `tests/test_python.py`.
-3. Прогоните тесты Go и Python:
+2. Обновите контрольные суммы манифеста словарей:
+   ```bash
+   python3 tools/update_manifest.py
+   ```
+3. Добавьте проверку в `tests/golden/golden_lemmas.tsv` (и при изменении спорного омонима — запись в `CHANGELOG.md`).
+4. Прогоните все проверки (манифест, Go `-race`, Python и примеры):
    ```bash
    make build
    make test

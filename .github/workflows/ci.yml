@@ -22,16 +22,21 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Verify dictionary manifest checksums
+        run: python3 tools/update_manifest.py --check
+
       - name: Build CLI & C-shared library
         run: make build
 
-      - name: Run Go tests with race detector
-        run: go test -v -race ./...
+      - name: Run Go vet & tests with race detector
+        run: |
+          go vet ./...
+          go test -v -race ./...
 
-      - name: Run Python native binding tests
+      - name: Run Python native, golden & example tests
         run: make test-py
 
-      - name: Test pip editable install
+      - name: Test pip install & bundled manifest
         run: |
           pip install --no-build-isolation --no-deps .
-          python -c "from rulemma import RuLemma; r = RuLemma(); assert r.backend == 'native'; assert r.semantic_key('зимние кроссовки') == r.semantic_key('кроссовки на зиму'); print('pip install OK:', r.stats())"
+          python -c "from pathlib import Path; import rulemma; from rulemma import RuLemma, normalize_phrase; r = RuLemma(); assert r.backend == 'native'; assert r.abi_version == 1; assert r.library_version == rulemma.__version__; assert (Path(r.data_dir) / 'manifest.json').exists(); assert r.semantic_key('зимние кроссовки') == r.semantic_key('кроссовки на зиму'); assert r.lemma_key('Купить кроссовки в Москве', stopwords={'в', 'москва'}) == 'кроссовок купить'; assert normalize_phrase('Чёрная, 35 см!') == 'черная 35 см'; print('pip install OK:', r.library_version, r.stats())"

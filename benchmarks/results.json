@@ -1,5 +1,6 @@
 {
   "cpu_count": 32,
+  "python_version": "3.12.3",
   "datasets": {
     "general_ru": 133,
     "ecommerce_ru": 120,
@@ -8,62 +9,42 @@
   },
   "models": [
     {
-      "model": "rulemma (Go CGO native)",
-      "type": "Dict + Rules (Go, C-shared)",
-      "load_ms": 209.0,
-      "general_acc": 96.24,
-      "ecom_acc": 99.17,
+      "model": "rulemma 0.2.2 (Go CGO native)",
+      "key": "rulemma",
+      "type": "Словарь + правила (Go, MIT)",
+      "load_ms": 171.8,
+      "load_rss_mb": 60.9,
+      "peak_rss_mb": 104.1,
+      "general_acc": 99.25,
+      "ecom_acc": 100.0,
       "dedup_f1": 100.0,
       "dedup_inflect_f1": 22.2,
       "dedup_fp": 0,
-      "single_us": 134.8,
-      "batch_qps": 602753,
-      "semkey_qps": 613133,
+      "single_us": 128.5,
+      "batch_qps": 663709,
+      "semkey_qps": 567896,
       "gen_misses": [
-        [
-          "дочерей",
-          "дочь",
-          "дочерей"
-        ],
         [
           "цветов",
           "цветок",
           "цвет"
-        ],
-        [
-          "воробьев",
-          "воробей",
-          "воробьев"
-        ],
-        [
-          "большие",
-          "большой",
-          "больший"
-        ],
-        [
-          "автодорог",
-          "автодорога",
-          "автодорог"
         ]
       ],
-      "eco_misses": [
-        [
-          "отпариватели",
-          "отпариватель",
-          "отпариватели"
-        ]
-      ]
+      "eco_misses": []
     },
     {
       "model": "pymorphy3 (uncached)",
-      "type": "OpenCorpora FST (Python)",
-      "load_ms": 84.4,
+      "key": "pymorphy3_uncached",
+      "type": "OpenCorpora FST (Python, MIT)",
+      "load_ms": 47.0,
+      "load_rss_mb": 44.9,
+      "peak_rss_mb": 45.4,
       "general_acc": 94.74,
       "ecom_acc": 41.67,
       "dedup_f1": 18.2,
       "dedup_fp": 0,
-      "single_us": 562.2,
-      "batch_qps": 1778,
+      "single_us": 404.5,
+      "batch_qps": 2471,
       "gen_misses": [
         [
           "цветов",
@@ -156,14 +137,17 @@
     },
     {
       "model": "pymorphy3 (lru_cache 200k)",
-      "type": "OpenCorpora FST + Cache (Py)",
-      "load_ms": 84.4,
+      "key": "pymorphy3_cached",
+      "type": "OpenCorpora FST + кэш (Python, MIT)",
+      "load_ms": 47.0,
+      "load_rss_mb": 44.9,
+      "peak_rss_mb": 45.4,
       "general_acc": 94.74,
       "ecom_acc": 41.67,
       "dedup_f1": 18.2,
       "dedup_fp": 0,
-      "single_us": 6.5,
-      "batch_qps": 152871,
+      "single_us": 5.0,
+      "batch_qps": 200278,
       "gen_misses": [
         [
           "цветов",
@@ -255,15 +239,254 @@
       ]
     },
     {
+      "model": "mawo-pymorphy3",
+      "key": "mawo_pymorphy3",
+      "type": "Форк pymorphy3 (Python, MIT)",
+      "load_ms": 20.1,
+      "load_rss_mb": 39.7,
+      "peak_rss_mb": 39.8,
+      "general_acc": 81.2,
+      "ecom_acc": 76.67,
+      "dedup_f1": 14.0,
+      "dedup_fp": 0,
+      "single_us": 458.8,
+      "batch_qps": 2167,
+      "gen_misses": [
+        [
+          "городов",
+          "город",
+          "городов"
+        ],
+        [
+          "сестер",
+          "сестра",
+          "сестер"
+        ],
+        [
+          "листьев",
+          "лист",
+          "листьев"
+        ],
+        [
+          "цветов",
+          "цветок",
+          "цвет"
+        ],
+        [
+          "огурцов",
+          "огурец",
+          "огурцов"
+        ],
+        [
+          "зубов",
+          "зуб",
+          "зубов"
+        ],
+        [
+          "комаров",
+          "комар",
+          "комаров"
+        ],
+        [
+          "муравьев",
+          "муравей",
+          "муравьев"
+        ],
+        [
+          "воробьев",
+          "воробей",
+          "воробьев"
+        ],
+        [
+          "газа",
+          "газ",
+          "газа"
+        ]
+      ],
+      "eco_misses": [
+        [
+          "шуруповерты",
+          "шуруповерт",
+          "шуруповерта"
+        ],
+        [
+          "спрей",
+          "спрей",
+          "спря"
+        ],
+        [
+          "худи",
+          "худи",
+          "худить"
+        ],
+        [
+          "кигуруми",
+          "кигуруми",
+          "кигурумить"
+        ],
+        [
+          "эндуро",
+          "эндуро",
+          "эндурый"
+        ],
+        [
+          "трансформер",
+          "трансформер",
+          "трансформера"
+        ],
+        [
+          "шиммер",
+          "шиммер",
+          "шиммера"
+        ],
+        [
+          "энзим",
+          "энзим",
+          "энзима"
+        ],
+        [
+          "шампань",
+          "шампань",
+          "шампануть"
+        ],
+        [
+          "хуавей",
+          "хуавей",
+          "хуавь"
+        ]
+      ]
+    },
+    {
+      "model": "SteosMorphy (Go ctypes)",
+      "key": "steosmorphy",
+      "type": "Go DAWG + JSON ctypes (MIT)",
+      "load_ms": 280.8,
+      "load_rss_mb": 148.2,
+      "peak_rss_mb": 584.0,
+      "general_acc": 84.21,
+      "ecom_acc": 76.67,
+      "dedup_f1": 18.2,
+      "dedup_fp": 0,
+      "single_us": 3407.5,
+      "batch_qps": 726,
+      "gen_misses": [
+        [
+          "детей",
+          "ребенок",
+          "дитя"
+        ],
+        [
+          "сестер",
+          "сестра",
+          "сестер"
+        ],
+        [
+          "матерей",
+          "мать",
+          "матерь"
+        ],
+        [
+          "дочерей",
+          "дочь",
+          "дочерь"
+        ],
+        [
+          "цветов",
+          "цветок",
+          "цвет"
+        ],
+        [
+          "белые",
+          "белый",
+          "белое"
+        ],
+        [
+          "белого",
+          "белый",
+          "белое"
+        ],
+        [
+          "красная",
+          "красный",
+          "красная"
+        ],
+        [
+          "синие",
+          "синий",
+          "синяя"
+        ],
+        [
+          "новые",
+          "новый",
+          "новое"
+        ]
+      ],
+      "eco_misses": [
+        [
+          "кроссовки",
+          "кроссовок",
+          "кроссовка"
+        ],
+        [
+          "кроссовок",
+          "кроссовок",
+          "кроссовка"
+        ],
+        [
+          "математика",
+          "математика",
+          "математик"
+        ],
+        [
+          "худи",
+          "худи",
+          "худить"
+        ],
+        [
+          "кигуруми",
+          "кигуруми",
+          "кигурумь"
+        ],
+        [
+          "плейстейшен",
+          "плейстейшен",
+          "плейстейшенный"
+        ],
+        [
+          "фило",
+          "фило",
+          "фить"
+        ],
+        [
+          "флок",
+          "флок",
+          "флка"
+        ],
+        [
+          "фунчоза",
+          "фунчоза",
+          "фунчоз"
+        ],
+        [
+          "сяоми",
+          "сяоми",
+          "сяомь"
+        ]
+      ]
+    },
+    {
       "model": "Natasha (Slovnet + MorphVocab)",
-      "type": "Neural POS + OpenCorpora (Py)",
-      "load_ms": 723.3,
+      "key": "natasha",
+      "type": "Нейросеть POS + OpenCorpora (MIT)",
+      "load_ms": 2429.5,
+      "load_rss_mb": 210.6,
+      "peak_rss_mb": 234.2,
       "general_acc": 95.49,
       "ecom_acc": 74.17,
       "dedup_f1": 13.6,
       "dedup_fp": 1,
-      "single_us": 920.8,
-      "batch_qps": 1086,
+      "single_us": 4016.6,
+      "batch_qps": 248,
       "gen_misses": [
         [
           "цветов",
@@ -351,14 +574,17 @@
     },
     {
       "model": "simplemma (ru)",
-      "type": "Dict + Rules (Python)",
-      "load_ms": 1462.9,
+      "key": "simplemma",
+      "type": "Словарь + правила (Python, MIT)",
+      "load_ms": 2743.1,
+      "load_rss_mb": 155.7,
+      "peak_rss_mb": 162.8,
       "general_acc": 93.23,
       "ecom_acc": 90.0,
       "dedup_f1": 14.0,
       "dedup_fp": 0,
-      "single_us": 5.1,
-      "batch_qps": 195221,
+      "single_us": 10.1,
+      "batch_qps": 98939,
       "gen_misses": [
         [
           "ванная",
@@ -460,27 +686,18 @@
       ]
     },
     {
-      "model": "SnowballStemmer (ru)",
-      "type": "Rule Stemmer (Python)",
-      "load_ms": 0.0,
-      "general_acc": 16.54,
-      "ecom_acc": 49.17,
-      "dedup_f1": 29.2,
-      "dedup_fp": 1,
-      "single_us": 156.6,
-      "batch_qps": 6386,
-      "note": "Stemmer (produces stems, not dictionary lemmas)"
-    },
-    {
       "model": "pymystem3 (Yandex MyStem)",
-      "type": "C++ Binary Bridge (Proprietary)",
-      "load_ms": 778.0,
+      "key": "pymystem3",
+      "type": "C++ бинарник (проприетарный)",
+      "load_ms": 897.4,
+      "load_rss_mb": 19.7,
+      "peak_rss_mb": 32.2,
       "general_acc": 92.48,
       "ecom_acc": 89.17,
       "dedup_f1": 22.2,
       "dedup_fp": 0,
-      "single_us": 195.8,
-      "batch_qps": 5634,
+      "single_us": 165.6,
+      "batch_qps": 5314,
       "gen_misses": [
         [
           "дома",
@@ -585,6 +802,47 @@
           "солгарин"
         ]
       ]
+    },
+    {
+      "model": "SnowballStemmer (ru)",
+      "key": "snowball",
+      "type": "Стеммер (Python, BSD-3)",
+      "load_ms": 0.0,
+      "load_rss_mb": 22.0,
+      "peak_rss_mb": 21.8,
+      "general_acc": 16.54,
+      "ecom_acc": 49.17,
+      "dedup_f1": 29.2,
+      "dedup_fp": 1,
+      "single_us": 121.4,
+      "batch_qps": 8236,
+      "note": "Stemmer (produces stems, not dictionary lemmas)"
+    }
+  ],
+  "rulemma_scale": [
+    {
+      "queries": 20000,
+      "lemmatize_s": 0.029,
+      "lemmatize_qps": 691549,
+      "semkey_s": 0.027,
+      "semkey_qps": 745955,
+      "peak_rss_mb": 106.8
+    },
+    {
+      "queries": 100000,
+      "lemmatize_s": 0.159,
+      "lemmatize_qps": 629713,
+      "semkey_s": 0.152,
+      "semkey_qps": 657987,
+      "peak_rss_mb": 215.7
+    },
+    {
+      "queries": 1000000,
+      "lemmatize_s": 1.183,
+      "lemmatize_qps": 844953,
+      "semkey_s": 1.166,
+      "semkey_qps": 857423,
+      "peak_rss_mb": 1281.3
     }
   ]
 }

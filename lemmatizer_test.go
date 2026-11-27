@@ -1,6 +1,11 @@
 package rulemma
 
 import (
+	"bufio"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -251,5 +256,165 @@ func BenchmarkLemmaKey(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = lem.LemmaKey(sample)
+	}
+}
+
+func TestNormalizePhrase(t *testing.T) {
+	// Guard: all 33 single Cyrillic letters must stay themselves (with ё -> е), never verb/advb.
+	lem := loadTestLem(t)
+	for _, r := range "абвгдеёжзийклмнопрстуфхцчшщъыьэюя" {
+		w := string(r)
+		want := w
+		if r == 'ё' {
+			want = "е"
+		}
+		if got := lem.Word(w); got != want {
+			t.Errorf("single-letter Word(%q) = %q, want %q", w, got, want)
+		}
+	}
+
+	cases := []struct {
+		in     string
+		keepYo bool
+		want   string
+	}{
+		{"  Купить   Чёрные  кроссовки, 42! ", false, "купить черные кроссовки 42"},
+		{"  Купить   Чёрные  кроссовки, 42! ", true, "купить чёрные кроссовки 42"},
+		{"Ёлка-иголка (180 см) — хит!", false, "елка-иголка 180 см хит"},
+		{"Ёлка-иголка (180 см) — хит!", true, "ёлка-иголка 180 см хит"},
+		{"---  !!!  ...", false, ""},
+		{"", false, ""},
+	}
+	for _, tc := range cases {
+		if got := NormalizePhrase(tc.in, tc.keepYo); got != tc.want {
+			t.Errorf("NormalizePhrase(%q, %v) = %q, want %q", tc.in, tc.keepYo, got, tc.want)
+		}
+	}
+}
+
+func TestMakeStopWordsAndCustomStop(t *testing.T) {
+	lem := loadTestLem(t)
+	stop := MakeStopWords([]string{"в", "Москва", "дёшево"})
+	if got := lem.LemmaKeyWithStop("Купить кроссовки в Москве дешево", stop); got != "кроссовок купить" {
+		t.Errorf("LemmaKeyWithStop = %q, want %q", got, "кроссовок купить")
+	}
+	if got := lem.LemmaKeyWithStop("Купить в Москве", map[string]struct{}{}); got != "в купить москва" {
+		t.Errorf("LemmaKeyWithStop(empty) = %q, want %q", got, "в купить москва")
+	}
+	if got := lem.SemanticKeyWithStop("Купить зимние кроссовки в Москве", stop); got != "зима кроссовок купить" {
+		t.Errorf("SemanticKeyWithStop = %q, want %q", got, "зима кроссовок купить")
+	}
+}
+
+func TestLoadManifest(t *testing.T) {
+	m, err := LoadManifest("data")
+	if err != nil {
+		t.Fatalf("LoadManifest(data): %v", err)
+	}
+	if m.SchemaVersion != DictSchemaVersion {
+		t.Errorf("SchemaVersion = %d, want %d", m.SchemaVersion, DictSchemaVersion)
+	}
+	if m.EngineMinVersion == "" || m.DictVersion == "" {
+		t.Errorf("missing versions in manifest: %+v", m)
+	}
+	for _, k := range []string{"lemmas", "adj_forms", "types", "adj_noun", "overrides"} {
+		if m.Counts[k] <= 0 {
+			t.Errorf("manifest counts[%q] = %d", k, m.Counts[k])
+		}
+		fname := m.Files[k]
+		if len(m.SHA256[fname]) != 64 {
+			t.Errorf("manifest sha256[%q] invalid: %q", fname, m.SHA256[fname])
+		}
+	}
+}
+
+func TestGoldenLemmas(t *testing.T) {
+	lem := loadTestLem(t)
+	f, err := os.Open(filepath.Join("tests", "golden", "golden_lemmas.tsv"))
+	if err != nil {
+		t.Fatalf("open golden_lemmas.tsv: %v", err)
+	}
+	defer f.Close()
+
+	sc := bufio.NewScanner(f)
+	count := 0
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.Split(line, "\t")
+		if len(parts) < 2 {
+			continue
+		}
+		count++
+		if got := lem.Word(parts[0]); got != parts[1] {
+			t.Errorf("golden Word(%q) = %q, want %q", parts[0], got, parts[1])
+		}
+	}
+	if err := sc.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if count < 500 {
+		t.Errorf("expected >=500 golden lemmas, got %d", count)
+	}
+}
+
+func TestGoldenEcommerce(t *testing.T) {
+	lem := loadTestLem(t)
+	f, err := os.Open(filepath.Join("tests", "golden", "golden_ecommerce.tsv"))
+	if err != nil {
+		t.Fatalf("open golden_ecommerce.tsv: %v", err)
+	}
+	defer f.Close()
+
+	sc := bufio.NewScanner(f)
+	count := 0
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.Split(line, "\t")
+		if len(parts) < 4 {
+			continue
+		}
+		count++
+		kind, arg1, arg2, want := parts[0], parts[1], parts[2], parts[3]
+		switch kind {
+		case "lemma_key":
+			if got := lem.LemmaKey(arg1); got != want {
+				t.Errorf("golden LemmaKey(%q) = %q, want %q", arg1, got, want)
+			}
+		case "semantic_key_eq":
+			k1, k2 := lem.SemanticKey(arg1), lem.SemanticKey(arg2)
+			if k1 != want || k2 != want {
+				t.Errorf("golden SemanticKey(%q)=%q, (%q)=%q, want %q", arg1, k1, arg2, k2, want)
+			}
+		case "semantic_key_neq":
+			k1, k2 := lem.SemanticKey(arg1), lem.SemanticKey(arg2)
+			if k1 == k2 {
+				t.Errorf("golden SemanticKey false collision: %q and %q both -> %q", arg1, arg2, k1)
+			}
+		case "agree_adjective":
+			if got, _ := lem.AgreeAdjective(arg1, arg2); got != want {
+				t.Errorf("golden AgreeAdjective(%q, %q) = %q, want %q", arg1, arg2, got, want)
+			}
+		case "build_seo_name":
+			meta := strings.Split(arg1, "|")
+			maxLen, _ := strconv.Atoi(meta[2])
+			kws := strings.Split(arg2, "|")
+			if got, _, _ := lem.BuildSEOName(meta[0], meta[1], kws, maxLen); got != want {
+				t.Errorf("golden BuildSEOName(%q, %q, %v) = %q, want %q", meta[0], meta[1], kws, got, want)
+			}
+		default:
+			t.Errorf("unknown golden kind: %q", kind)
+		}
+	}
+	if err := sc.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if count < 100 {
+		t.Errorf("expected >=100 golden ecommerce cases, got %d", count)
 	}
 }

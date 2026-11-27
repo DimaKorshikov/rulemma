@@ -161,6 +161,7 @@
 дайсон	дайсон	brand
 филипс	филипс	brand
 тефаль	тефаль	pymorphy3: тефаля
+делонги	делонги	indeclinable brand (DeLonghi)
 индезит	индезит	pymorphy3: индезита
 аквафор	аквафор	pymorphy3: аквафора
 старлайн	старлайн	pymorphy3: старлайна
@@ -227,3 +228,175 @@
 ванная	ванная
 столовая	столовая
 кондитерская	кондитерская
+
+# v0.2.1: General Russian & e-commerce dictionary gaps / homonym fixes
+отпариватели	отпариватель	pl of отпариватель
+отпаривателя	отпариватель	gen of отпариватель
+отпаривателю	отпариватель	dat of отпариватель
+отпаривателем	отпариватель	ins of отпариватель
+отпаривателе	отпариватель	loc of отпариватель
+отпаривателей	отпариватель	gen pl of отпариватель
+отпаривателям	отпариватель	dat pl of отпариватель
+отпаривателями	отпариватель	ins pl of отпариватель
+отпаривателях	отпариватель	loc pl of отпариватель
+дочерей	дочь	gen pl of дочь
+дочерям	дочь	dat pl of дочь
+дочерьми	дочь	ins pl of дочь
+дочерях	дочь	loc pl of дочь
+воробьев	воробей	gen pl of воробей (homonym with Surn Воробьёв)
+воробьи	воробей	pl of воробей
+воробьем	воробей	ins of воробей
+воробьям	воробей	dat pl of воробей
+воробьями	воробей	ins pl of воробей
+воробьях	воробей	loc pl of воробей
+автодорога	автодорога	noun
+автодороги	автодорога	gen/pl of автодорога
+автодороге	автодорога	dat/loc of автодорога
+автодорогу	автодорога	acc of автодорога
+автодорогой	автодорога	ins of автодорога
+автодорог	автодорога	gen pl of автодорога
+автодорогам	автодорога	dat pl of автодорога
+автодорогами	автодорога	ins pl of автодорога
+автодорогах	автодорога	loc pl of автодорога
+большая	большой	adj femn (prefer большой over comparative больший)
+большие	большой	adj plur (prefer большой over comparative больший)
+большую	большой	adj femn acc (prefer большой over comparative больший)
+больших	большой	adj gen/loc plur (prefer большой over comparative больший)
+большими	большой	adj ins plur (prefer большой over comparative больший)
+большим	большой	adj ins/dat (prefer большой over comparative больший)
+большому	большой	adj dat sing (prefer большой over comparative больший)
+
+# v0.2.1: Measurement units, single-letter designations & product homonyms
+см	см	unit centimeter (not verb смотреть)
+мм	мм	unit millimeter
+мг	мг	unit milligram
+кг	кг	unit kilogram
+вт	вт	unit watt
+квт	квт	unit kilowatt
+л	л	unit liter
+мл	мл	unit milliliter
+шт	шт	unit piece
+м	м	unit meter
+г	г	unit gram
+б	б	single-letter designation (not verb быть)
+д	д	single-letter designation (not advb далее)
+е	е	single-letter designation (vitamin E, not verb быть)
+т	т	single-letter designation (not conj так)
+мелки	мелок	pl of мелок (not short adj мелкий)
+мелок	мелок	noun guard
+мелков	мелок	gen pl of мелок
+полка	полка	noun guard (not полк)
+полки	полка	pl/gen of полка (not полк)
+полку	полка	acc of полка
+полке	полка	dat/loc of полка
+полкой	полка	ins of полка
+
+# v0.2.1: Adjectival participles (PRTF) kept as adjectives for agreement & product matching
+плавающий	плавающий	adjectival participle (not verb плавать)
+плавающая	плавающий	femn of плавающий
+плавающее	плавающий	neut of плавающий
+плавающие	плавающий	plur of плавающий
+плавающего	плавающий	gen of плавающий
+плавающей	плавающий	femn obl of плавающий
+плавающих	плавающий	plur gen of плавающий
+плавающим	плавающий	ins/dat of плавающий
+плавающими	плавающий	plur ins of плавающий
+плавающую	плавающий	femn acc of плавающий
+развивающий	развивающий	adjectival participle (not verb развивать)
+развивающая	развивающий	femn of развивающий
+развивающее	развивающий	neut of развивающий
+развивающие	развивающий	plur of развивающий
+развивающего	развивающий	gen of развивающий
+развивающей	развивающий	femn obl of развивающий
+развивающих	развивающий	plur gen of развивающий
+развивающим	развивающий	ins/dat of развивающий
+развивающими	развивающий	plur ins of развивающий
+развивающую	развивающий	femn acc of развивающий
+обслуживаемый	обслуживаемый	adjectival participle (not verb обслуживать)
+обслуживаемая	обслуживаемый	femn of обслуживаемый
+обслуживаемое	обслуживаемый	neut of обслуживаемый
+обслуживаемые	обслуживаемый	plur of обслуживаемый
+обслуживаемого	обслуживаемый	gen of обслуживаемый
+обслуживаемой	обслуживаемый	femn obl of обслуживаемый
+обслуживаемых	обслуживаемый	plur gen of обслуживаемый
+обслуживаемым	обслуживаемый	ins/dat of обслуживаемый
+обслуживаемыми	обслуживаемый	plur ins of обслуживаемый
+обслуживаемую	обслуживаемый	femn acc of обслуживаемый
+оцинкованный	оцинкованный	adjectival participle (not verb оцинковать)
+оцинкованная	оцинкованный	femn of оцинкованный
+оцинкованное	оцинкованный	neut of оцинкованный
+оцинкованные	оцинкованный	plur of оцинкованный
+оцинкованного	оцинкованный	gen of оцинкованный
+оцинкованной	оцинкованный	femn obl of оцинкованный
+оцинкованных	оцинкованный	plur gen of оцинкованный
+оцинкованным	оцинкованный	ins/dat of оцинкованный
+оцинкованными	оцинкованный	plur ins of оцинкованный
+оцинкованную	оцинкованный	femn acc of оцинкованный
+орнаментированный	орнаментированный	adjectival participle (not verb орнаментировать)
+орнаментированная	орнаментированный	femn of орнаментированный
+орнаментированное	орнаментированный	neut of орнаментированный
+орнаментированные	орнаментированный	plur of орнаментированный
+орнаментированного	орнаментированный	gen of орнаментированный
+орнаментированной	орнаментированный	femn obl of орнаментированный
+орнаментированных	орнаментированный	plur gen of орнаментированный
+орнаментированным	орнаментированный	ins/dat of орнаментированный
+орнаментированными	орнаментированный	plur ins of орнаментированный
+орнаментированную	орнаментированный	femn acc of орнаментированный
+встраиваемый	встраиваемый	adjectival participle (not verb встраивать)
+встраиваемая	встраиваемый	femn of встраиваемый
+встраиваемое	встраиваемый	neut of встраиваемый
+встраиваемые	встраиваемый	plur of встраиваемый
+встраиваемого	встраиваемый	gen of встраиваемый
+встраиваемой	встраиваемый	femn obl of встраиваемый
+встраиваемых	встраиваемый	plur gen of встраиваемый
+встраиваемым	встраиваемый	ins/dat of встраиваемый
+встраиваемыми	встраиваемый	plur ins of встраиваемый
+встраиваемую	встраиваемый	femn acc of встраиваемый
+оксидированный	оксидированный	adjectival participle (not verb оксидировать)
+оксидированная	оксидированный	femn of оксидированный
+оксидированное	оксидированный	neut of оксидированный
+оксидированные	оксидированный	plur of оксидированный
+оксидированного	оксидированный	gen of оксидированный
+оксидированной	оксидированный	femn obl of оксидированный
+оксидированных	оксидированный	plur gen of оксидированный
+оксидированным	оксидированный	ins/dat of оксидированный
+оксидированными	оксидированный	plur ins of оксидированный
+оксидированную	оксидированный	femn acc of оксидированный
+
+# v0.2.2: General Russian / e-commerce short-word homonyms & technical abbreviations
+мин	мин	unit minute / minimum (not мина)
+рус	рус	abbreviation Russian / RUS (not short adj русый)
+осп	осп	OSB construction board (not оспа)
+хот	хот	common loanword root (not хота)
+фит	фит	common loanword root (not фита)
+мен	мен	common loanword root (not мена)
+кар	кар	common loanword root (not кара)
+пар	пар	noun steam (prefer пар over gen pl of пара)
+моли	моль	gen/pl of моль (moth, not imperative verb молить)
+драй	драй	common loanword dry (not imperative verb драить)
+джиг	джиг	fishing jig (not джига)
+коп	коп	coin kopeck abbr / metal detecting (not archaic копа)
+полы	пол	pl of пол (floor, not пола coat hem)
+полов	пол	gen pl of пол (floor, not полова chaff)
+полам	пол	dat pl of пол
+полом	пол	ins of пол
+мини	мини	indeclinable prefix/adj mini (not Name минь)
+угги	угги	pluralia tantum boots ugg (not Name угга)
+бини	бини	beanie hat (not Geox биня)
+пэды	пэд	pl of косметический пэд (not Name пэда)
+озу	озу	abbreviation RAM ОЗУ (not оз)
+сиз	сиз	abbreviation PPE СИЗ (not ADJS сизый)
+рал	рал	RAL color standard (not archaic рало)
+дез	дез	disinfection prefix/abbr (not деза)
+вент	вент	ventilation prefix/abbr (not вента)
+табл	табл	abbreviation tablet/table (not табла)
+пав	пав	abbreviation surfactant ПАВ (not пасть/пава)
+вен	вена	gen pl of вена (vein, not archaic вено)
+ямы	яма	pl/gen of яма (pit, not archaic ям)
+фару	фара	acc of фара (headlight, not Fixd Geox фару)
+газу	газ	dat/loc of газ (not Geox газа)
+клади	кладь	gen/dat/loc of кладь (hand luggage, not impr класть)
+суши	суши	indeclinable sushi (not verb сушить / суша)
+рамен	рамен	ramen noodle soup (not ADJS рамный / рамена)
+биты	бита	pl of бита (screwdriver bit / bat, not ADJS битый)
+лосины	лосины	pluralia tantum leggings (not ADJS лосиный)

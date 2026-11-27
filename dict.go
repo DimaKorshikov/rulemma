@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -25,13 +25,54 @@ type Options struct {
 	ExtraOverridesPath string
 }
 
-// openMaybeGzip opens a plain or .gz file transparently.
+// Manifest describes dictionary schema, version, entry counts, and SHA-256 checksums (`data/manifest.json`).
+type Manifest struct {
+	SchemaVersion    int               `json:"schema_version"`
+	DictVersion      string            `json:"dict_version"`
+	EngineMinVersion string            `json:"engine_min_version"`
+	Files            map[string]string `json:"files"`
+	Counts           map[string]int    `json:"counts"`
+	SHA256           map[string]string `json:"sha256"`
+}
+
+// LoadManifest reads data/manifest.json from dataDir.
+func LoadManifest(dataDir string) (*Manifest, error) {
+	return LoadManifestFS(os.DirFS(dataDir))
+}
+
+// LoadManifestFS reads manifest.json from an fs.FS (e.g., os.DirFS or embedded data.FS).
+func LoadManifestFS(fsys fs.FS) (*Manifest, error) {
+	b, err := fs.ReadFile(fsys, "manifest.json")
+	if err != nil {
+		return nil, fmt.Errorf("read manifest.json: %w", err)
+	}
+	var m Manifest
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, fmt.Errorf("decode manifest.json: %w", err)
+	}
+	return &m, nil
+}
+
+// openMaybeGzip opens a plain or .gz file transparently from the OS filesystem.
 func openMaybeGzip(path string) (io.ReadCloser, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	if strings.HasSuffix(path, ".gz") {
+	return wrapMaybeGzip(f, path)
+}
+
+// openMaybeGzipFS opens a plain or .gz file transparently from an fs.FS.
+func openMaybeGzipFS(fsys fs.FS, name string) (io.ReadCloser, error) {
+	f, err := fsys.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	return wrapMaybeGzip(f, name)
+}
+
+func wrapMaybeGzip(f io.ReadCloser, name string) (io.ReadCloser, error) {
+	if strings.HasSuffix(name, ".gz") {
 		gz, err := gzip.NewReader(f)
 		if err != nil {
 			f.Close()
@@ -44,7 +85,7 @@ func openMaybeGzip(path string) (io.ReadCloser, error) {
 
 type gzipReadCloser struct {
 	gz *gzip.Reader
-	f  *os.File
+	f  io.ReadCloser
 }
 
 func (g *gzipReadCloser) Read(p []byte) (int, error) { return g.gz.Read(p) }
@@ -57,31 +98,30 @@ func (g *gzipReadCloser) Close() error {
 	return err2
 }
 
-func firstExisting(dir string, names ...string) string {
+func firstExistingFS(fsys fs.FS, names ...string) string {
 	for _, n := range names {
-		p := filepath.Join(dir, n)
-		if _, err := os.Stat(p); err == nil {
-			return p
+		if _, err := fs.Stat(fsys, n); err == nil {
+			return n
 		}
 	}
 	return ""
 }
 
-func loadLemmas(dir string) (map[string]string, error) {
-	p := firstExisting(dir, "lemmas.tsv.gz", "lemmas.tsv", "lemmas.json.gz", "lemmas.json")
-	if p == "" {
-		return nil, fmt.Errorf("lemmas dictionary not found in %s", dir)
+func loadLemmasFS(fsys fs.FS, label string) (map[string]string, error) {
+	name := firstExistingFS(fsys, "lemmas.tsv.gz", "lemmas.tsv", "lemmas.json.gz", "lemmas.json")
+	if name == "" {
+		return nil, fmt.Errorf("lemmas dictionary not found in %s", label)
 	}
-	rc, err := openMaybeGzip(p)
+	rc, err := openMaybeGzipFS(fsys, name)
 	if err != nil {
-		return nil, fmt.Errorf("open %s: %w", p, err)
+		return nil, fmt.Errorf("open %s: %w", name, err)
 	}
 	defer rc.Close()
 
-	if strings.Contains(filepath.Base(p), ".json") {
+	if strings.Contains(name, ".json") {
 		var m map[string]string
 		if err := json.NewDecoder(rc).Decode(&m); err != nil {
-			return nil, fmt.Errorf("decode %s: %w", p, err)
+			return nil, fmt.Errorf("decode %s: %w", name, err)
 		}
 		out := make(map[string]string, len(m))
 		for k, v := range m {
@@ -110,20 +150,14 @@ func loadLemmas(dir string) (map[string]string, error) {
 		out[w] = normYo(strings.ToLower(rest))
 	}
 	if err := sc.Err(); err != nil {
-		return nil, fmt.Errorf("scan %s: %w", p, err)
+		return nil, fmt.Errorf("scan %s: %w", name, err)
 	}
 	return out, nil
 }
 
-func applyOverrides(lemmas map[string]string, path string) (int, error) {
-	rc, err := openMaybeGzip(path)
-	if err != nil {
-		return 0, err
-	}
-	defer rc.Close()
-
+func applyOverridesReader(lemmas map[string]string, r io.Reader) (int, error) {
 	n := 0
-	sc := bufio.NewScanner(rc)
+	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 32*1024), 512*1024)
 	for sc.Scan() {
 		line := strings.TrimSpace(sc.Text())
@@ -148,21 +182,39 @@ func applyOverrides(lemmas map[string]string, path string) (int, error) {
 	return n, sc.Err()
 }
 
-func loadAdjForms(dir string) (map[string]string, error) {
-	p := firstExisting(dir, "adj_forms.tsv.gz", "adj_forms.tsv", "adj_forms.json.gz", "adj_forms.json")
-	if p == "" {
+func applyOverrides(lemmas map[string]string, path string) (int, error) {
+	rc, err := openMaybeGzip(path)
+	if err != nil {
+		return 0, err
+	}
+	defer rc.Close()
+	return applyOverridesReader(lemmas, rc)
+}
+
+func applyOverridesFS(lemmas map[string]string, fsys fs.FS, name string) (int, error) {
+	rc, err := openMaybeGzipFS(fsys, name)
+	if err != nil {
+		return 0, err
+	}
+	defer rc.Close()
+	return applyOverridesReader(lemmas, rc)
+}
+
+func loadAdjFormsFS(fsys fs.FS) (map[string]string, error) {
+	name := firstExistingFS(fsys, "adj_forms.tsv.gz", "adj_forms.tsv", "adj_forms.json.gz", "adj_forms.json")
+	if name == "" {
 		return map[string]string{}, nil
 	}
-	rc, err := openMaybeGzip(p)
+	rc, err := openMaybeGzipFS(fsys, name)
 	if err != nil {
-		return nil, fmt.Errorf("open %s: %w", p, err)
+		return nil, fmt.Errorf("open %s: %w", name, err)
 	}
 	defer rc.Close()
 
-	if strings.Contains(filepath.Base(p), ".json") {
+	if strings.Contains(name, ".json") {
 		var m map[string]string
 		if err := json.NewDecoder(rc).Decode(&m); err != nil {
-			return nil, fmt.Errorf("decode %s: %w", p, err)
+			return nil, fmt.Errorf("decode %s: %w", name, err)
 		}
 		return m, nil
 	}
@@ -184,21 +236,21 @@ func loadAdjForms(dir string) (map[string]string, error) {
 	return out, sc.Err()
 }
 
-func loadTypes(dir string) (map[string]GramInfo, error) {
-	p := firstExisting(dir, "types.tsv.gz", "types.tsv", "types.json.gz", "types.json")
-	if p == "" {
+func loadTypesFS(fsys fs.FS) (map[string]GramInfo, error) {
+	name := firstExistingFS(fsys, "types.tsv.gz", "types.tsv", "types.json.gz", "types.json")
+	if name == "" {
 		return map[string]GramInfo{}, nil
 	}
-	rc, err := openMaybeGzip(p)
+	rc, err := openMaybeGzipFS(fsys, name)
 	if err != nil {
-		return nil, fmt.Errorf("open %s: %w", p, err)
+		return nil, fmt.Errorf("open %s: %w", name, err)
 	}
 	defer rc.Close()
 
-	if strings.Contains(filepath.Base(p), ".json") {
+	if strings.Contains(name, ".json") {
 		var m map[string]GramInfo
 		if err := json.NewDecoder(rc).Decode(&m); err != nil {
-			return nil, fmt.Errorf("decode %s: %w", p, err)
+			return nil, fmt.Errorf("decode %s: %w", name, err)
 		}
 		out := make(map[string]GramInfo, len(m))
 		for k, v := range m {
@@ -222,14 +274,14 @@ func loadTypes(dir string) (map[string]GramInfo, error) {
 	return out, sc.Err()
 }
 
-func loadAdjNoun(dir string) (map[string]string, error) {
-	p := firstExisting(dir, "adj_noun.tsv.gz", "adj_noun.tsv")
-	if p == "" {
+func loadAdjNounFS(fsys fs.FS) (map[string]string, error) {
+	name := firstExistingFS(fsys, "adj_noun.tsv.gz", "adj_noun.tsv")
+	if name == "" {
 		return map[string]string{}, nil
 	}
-	rc, err := openMaybeGzip(p)
+	rc, err := openMaybeGzipFS(fsys, name)
 	if err != nil {
-		return nil, fmt.Errorf("open %s: %w", p, err)
+		return nil, fmt.Errorf("open %s: %w", name, err)
 	}
 	defer rc.Close()
 

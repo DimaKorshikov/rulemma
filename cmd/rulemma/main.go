@@ -2,10 +2,11 @@
 //
 // Subcommands:
 //
-//	rulemma info      [--data data]
-//	rulemma lemmatize [--data data] [--mode text|key|both] [--workers N]
-//	rulemma tsv       --in IN.tsv --out OUT.tsv [--col 0] [--mode key|text|both] [--header] [--data data] [--workers N]
-//	rulemma bench     --in QUERIES.txt [--data data] [--workers N]
+//	rulemma version
+//	rulemma info      [--data data] [--overrides FILE]
+//	rulemma lemmatize [--data data] [--mode text|key|semkey|both|all|norm] [--stopwords FILE|none|w1,w2] [--keep-yo] [--workers N]
+//	rulemma tsv       --in IN.tsv --out OUT.tsv [--col 0] [--mode text|key|semkey|both|all|norm] [--stopwords FILE|none|w1,w2] [--keep-yo] [--header] [--data data] [--workers N]
+//	rulemma bench     --in QUERIES.txt [--data data] [--mode text|key|semkey|both|all|norm] [--stopwords FILE|none|w1,w2] [--workers N]
 //	rulemma seoname   --in PRODUCTS.csv --out RESULT.csv [--data data] [--workers N]
 package main
 
@@ -53,6 +54,8 @@ func main() {
 	sub := os.Args[1]
 	args := os.Args[2:]
 	switch sub {
+	case "version", "-v", "--version":
+		fmt.Printf("rulemma %s (abi=%d, dict_schema=%d)\n", rulemma.Version, rulemma.ABIVersion, rulemma.DictSchemaVersion)
 	case "info":
 		cmdInfo(args)
 	case "lemmatize":
@@ -76,11 +79,12 @@ func usage() {
 	fmt.Fprintln(os.Stderr, `rulemma — fast dictionary-backed Russian & e-commerce lemmatizer (Go)
 
 Usage:
+  rulemma version
   rulemma info      [--data DIR] [--overrides FILE]
-  rulemma lemmatize [--data DIR] [--overrides FILE] [--mode text|key|both] [--workers N]
-  rulemma tsv       --in IN.tsv --out OUT.tsv [--col 0] [--mode key|text|both] [--header] [--data DIR] [--workers N]
-  rulemma bench     --in FILE [--data DIR] [--workers N]
-  rulemma seoname   --in PRODUCTS.csv --out RESULT.csv [--data DIR] [--workers N]`)
+  rulemma lemmatize [--data DIR] [--overrides FILE] [--mode text|key|semkey|both|all|norm] [--stopwords FILE|none|w1,w2] [--keep-yo] [--workers N]
+  rulemma tsv       --in IN.tsv --out OUT.tsv [--col 0] [--mode text|key|semkey|both|all|norm] [--stopwords FILE|none|w1,w2] [--keep-yo] [--header] [--data DIR] [--workers N]
+  rulemma bench     --in FILE [--data DIR] [--overrides FILE] [--mode text|key|semkey|both|all|norm] [--stopwords FILE|none|w1,w2] [--workers N]
+  rulemma seoname   --in PRODUCTS.csv --out RESULT.csv [--data DIR] [--overrides FILE] [--workers N]`)
 }
 
 func mustLoad(dataDir, overrides string) (*rulemma.Lemmatizer, time.Duration) {
@@ -93,6 +97,46 @@ func mustLoad(dataDir, overrides string) (*rulemma.Lemmatizer, time.Duration) {
 	return lem, time.Since(t0)
 }
 
+func loadStopWordsFlag(spec string) (map[string]struct{}, error) {
+	spec = strings.TrimSpace(spec)
+	if spec == "" {
+		return rulemma.DefaultKeyStopWords, nil
+	}
+	if strings.EqualFold(spec, "none") {
+		return map[string]struct{}{}, nil
+	}
+	if info, err := os.Stat(spec); err == nil && !info.IsDir() {
+		f, err := os.Open(spec)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		var words []string
+		sc := bufio.NewScanner(f)
+		for sc.Scan() {
+			line := strings.TrimSpace(sc.Text())
+			if line == "" || line[0] == '#' {
+				continue
+			}
+			words = append(words, line)
+		}
+		if err := sc.Err(); err != nil {
+			return nil, err
+		}
+		return rulemma.MakeStopWords(words), nil
+	}
+	return rulemma.MakeStopWords(strings.Split(spec, ",")), nil
+}
+
+func mustLoadStopWords(spec string) map[string]struct{} {
+	stop, err := loadStopWordsFlag(spec)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error loading stopwords %q: %v\n", spec, err)
+		os.Exit(1)
+	}
+	return stop
+}
+
 func cmdInfo(args []string) {
 	fs := flag.NewFlagSet("info", flag.ExitOnError)
 	dataDir := fs.String("data", defaultDataDir(), "Path to data directory")
@@ -101,22 +145,44 @@ func cmdInfo(args []string) {
 
 	lem, dur := mustLoad(*dataDir, *overrides)
 	st := lem.Stats()
-	fmt.Printf("data_dir:  %s\nlemmas:    %d\ntypes:     %d\nadj_forms: %d\nadj_noun:  %d\noverrides: %d\nload_time: %v\n",
-		*dataDir, st.Lemmas, st.Types, st.AdjForms, st.AdjNoun, st.Overrides, dur.Round(time.Millisecond))
+	fmt.Printf("version:   %s (abi=%d)\ndata_dir:  %s\nlemmas:    %d\ntypes:     %d\nadj_forms: %d\nadj_noun:  %d\noverrides: %d\nload_time: %v\n",
+		rulemma.Version, rulemma.ABIVersion, *dataDir, st.Lemmas, st.Types, st.AdjForms, st.AdjNoun, st.Overrides, dur.Round(time.Millisecond))
+	if m, err := rulemma.LoadManifest(*dataDir); err == nil {
+		fmt.Printf("dict_ver:  %s (schema=%d)\n", m.DictVersion, m.SchemaVersion)
+	}
 }
 
-func transformLine(lem *rulemma.Lemmatizer, line, mode string) string {
+func transformLine(lem *rulemma.Lemmatizer, line, mode string, stop map[string]struct{}, keepYo bool) string {
 	switch mode {
 	case "key":
-		return lem.LemmaKey(line)
+		return lem.LemmaKeyWithStop(line, stop)
 	case "semkey":
-		return lem.SemanticKey(line)
+		return lem.SemanticKeyWithStop(line, stop)
 	case "both":
-		return lem.LemmatizeString(line) + "\t" + lem.LemmaKey(line)
+		return lem.LemmatizeString(line) + "\t" + lem.LemmaKeyWithStop(line, stop)
 	case "all":
-		return lem.LemmatizeString(line) + "\t" + lem.LemmaKey(line) + "\t" + lem.SemanticKey(line)
+		return lem.LemmatizeString(line) + "\t" + lem.LemmaKeyWithStop(line, stop) + "\t" + lem.SemanticKeyWithStop(line, stop)
+	case "norm":
+		return rulemma.NormalizePhrase(line, keepYo)
 	default:
 		return lem.LemmatizeString(line)
+	}
+}
+
+func tsvHeaderSuffix(mode string) string {
+	switch mode {
+	case "key":
+		return "\tlemma_key"
+	case "semkey":
+		return "\tsemantic_key"
+	case "both":
+		return "\tlemma_text\tlemma_key"
+	case "all":
+		return "\tlemma_text\tlemma_key\tsemantic_key"
+	case "norm":
+		return "\tnorm_phrase"
+	default:
+		return "\tlemma_text"
 	}
 }
 
@@ -216,13 +282,19 @@ func cmdLemmatize(args []string) {
 	fs := flag.NewFlagSet("lemmatize", flag.ExitOnError)
 	dataDir := fs.String("data", defaultDataDir(), "Path to data directory")
 	overrides := fs.String("overrides", "", "Optional extra overrides TSV")
-	mode := fs.String("mode", "text", "Output mode: text | key | both")
+	mode := fs.String("mode", "text", "Output mode: text | key | semkey | both | all | norm")
+	stopwords := fs.String("stopwords", "", "Custom stopwords: file path, 'none', or comma-separated list (default: built-in)")
+	keepYo := fs.Bool("keep-yo", false, "Preserve 'ё' in --mode norm")
 	workers := fs.Int("workers", runtime.NumCPU(), "Worker goroutines")
 	fs.Parse(args)
 
-	lem, _ := mustLoad(*dataDir, *overrides)
+	stop := mustLoadStopWords(*stopwords)
+	var lem *rulemma.Lemmatizer
+	if *mode != "norm" {
+		lem, _ = mustLoad(*dataDir, *overrides)
+	}
 	_, err := processChunks(os.Stdin, os.Stdout, *workers, func(s string) string {
-		return transformLine(lem, s, *mode)
+		return transformLine(lem, s, *mode, stop, *keepYo)
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -235,7 +307,9 @@ func cmdTSV(args []string) {
 	inPath := fs.String("in", "", "Input TSV path")
 	outPath := fs.String("out", "", "Output TSV path")
 	col := fs.Int("col", 0, "0-based column index to lemmatize")
-	mode := fs.String("mode", "both", "Appended column(s): text | key | both")
+	mode := fs.String("mode", "both", "Appended column(s): text | key | semkey | both | all | norm")
+	stopwords := fs.String("stopwords", "", "Custom stopwords: file path, 'none', or comma-separated list (default: built-in)")
+	keepYo := fs.Bool("keep-yo", false, "Preserve 'ё' in --mode norm")
 	header := fs.Bool("header", false, "Input TSV has a header row")
 	dataDir := fs.String("data", defaultDataDir(), "Path to data directory")
 	overrides := fs.String("overrides", "", "Optional extra overrides TSV")
@@ -246,7 +320,12 @@ func cmdTSV(args []string) {
 		fmt.Fprintln(os.Stderr, "tsv requires --in and --out")
 		os.Exit(1)
 	}
-	lem, loadDur := mustLoad(*dataDir, *overrides)
+	stop := mustLoadStopWords(*stopwords)
+	var lem *rulemma.Lemmatizer
+	var loadDur time.Duration
+	if *mode != "norm" {
+		lem, loadDur = mustLoad(*dataDir, *overrides)
+	}
 
 	inF, err := os.Open(*inPath)
 	if err != nil {
@@ -270,13 +349,7 @@ func cmdTSV(args []string) {
 			os.Exit(1)
 		}
 		hdr = strings.TrimRight(hdr, "\r\n")
-		suffix := "\tlemma_text"
-		if *mode == "key" {
-			suffix = "\tlemma_key"
-		} else if *mode == "both" {
-			suffix = "\tlemma_text\tlemma_key"
-		}
-		fmt.Fprintln(outF, hdr+suffix)
+		fmt.Fprintln(outF, hdr+tsvHeaderSuffix(*mode))
 	}
 
 	t0 := time.Now()
@@ -288,7 +361,7 @@ func cmdTSV(args []string) {
 		if cIdx >= 0 && cIdx < len(parts) {
 			val = parts[cIdx]
 		}
-		return line + "\t" + transformLine(lem, val, *mode)
+		return line + "\t" + transformLine(lem, val, *mode, stop, *keepYo)
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "process error: %v\n", err)
@@ -304,14 +377,16 @@ func cmdBench(args []string) {
 	inPath := fs.String("in", "", "Input newline-separated queries file")
 	dataDir := fs.String("data", defaultDataDir(), "Path to data directory")
 	overrides := fs.String("overrides", "", "Optional extra overrides TSV")
+	stopwords := fs.String("stopwords", "", "Custom stopwords: file path, 'none', or comma-separated list (default: built-in)")
 	workers := fs.Int("workers", runtime.NumCPU(), "Worker goroutines")
-	mode := fs.String("mode", "both", "Mode: text | key | both")
+	mode := fs.String("mode", "both", "Mode: text | key | semkey | both | all | norm")
 	fs.Parse(args)
 
 	if *inPath == "" {
 		fmt.Fprintln(os.Stderr, "bench requires --in FILE")
 		os.Exit(1)
 	}
+	stop := mustLoadStopWords(*stopwords)
 	lem, loadDur := mustLoad(*dataDir, *overrides)
 	st := lem.Stats()
 
@@ -335,14 +410,25 @@ func cmdBench(args []string) {
 			var locLines, locToks int64
 			for batch := range jobs {
 				for _, line := range batch {
-					if *mode == "key" {
-						_ = lem.LemmaKey(line)
+					switch *mode {
+					case "key":
+						_ = lem.LemmaKeyWithStop(line, stop)
 						locToks += int64(len(strings.Fields(line)))
-					} else if *mode == "text" {
+					case "semkey":
+						_ = lem.SemanticKeyWithStop(line, stop)
+						locToks += int64(len(strings.Fields(line)))
+					case "text":
 						locToks += int64(len(lem.Lemmatize(line)))
-					} else {
+					case "all":
 						locToks += int64(len(lem.Lemmatize(line)))
-						_ = lem.LemmaKey(line)
+						_ = lem.LemmaKeyWithStop(line, stop)
+						_ = lem.SemanticKeyWithStop(line, stop)
+					case "norm":
+						_ = rulemma.NormalizePhrase(line, false)
+						locToks += int64(len(strings.Fields(line)))
+					default:
+						locToks += int64(len(lem.Lemmatize(line)))
+						_ = lem.LemmaKeyWithStop(line, stop)
 					}
 					locLines++
 				}
@@ -422,10 +508,6 @@ func cmdSEOName(args []string) {
 	}
 
 	type rowIn struct {
-		idx int
-		rec []string
-	}
-	type rowOut struct {
 		idx int
 		rec []string
 	}

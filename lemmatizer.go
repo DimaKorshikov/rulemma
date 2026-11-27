@@ -7,8 +7,8 @@ package rulemma
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"unicode"
@@ -55,13 +55,30 @@ func Load(dataDir string) (*Lemmatizer, error) {
 
 // LoadWithOptions initializes a Lemmatizer from dataDir with custom options.
 func LoadWithOptions(dataDir string, opts Options) (*Lemmatizer, error) {
-	lemmas, err := loadLemmas(dataDir)
+	info, err := os.Stat(dataDir)
+	if err != nil {
+		return nil, fmt.Errorf("stat data dir %s: %w", dataDir, err)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("data path %s is not a directory", dataDir)
+	}
+	return loadFS(os.DirFS(dataDir), dataDir, opts)
+}
+
+// LoadFS initializes a Lemmatizer from an fs.FS (such as embed.FS or os.DirFS).
+// If opts.ExtraOverridesPath is set, it is loaded from the local filesystem on top of base overrides.
+func LoadFS(fsys fs.FS, opts Options) (*Lemmatizer, error) {
+	return loadFS(fsys, "fs.FS", opts)
+}
+
+func loadFS(fsys fs.FS, label string, opts Options) (*Lemmatizer, error) {
+	lemmas, err := loadLemmasFS(fsys, label)
 	if err != nil {
 		return nil, err
 	}
 	ovCnt := 0
-	if p := filepath.Join(dataDir, "overrides.tsv"); fileExists(p) {
-		n, err := applyOverrides(lemmas, p)
+	if _, err := fs.Stat(fsys, "overrides.tsv"); err == nil {
+		n, err := applyOverridesFS(lemmas, fsys, "overrides.tsv")
 		if err != nil {
 			return nil, fmt.Errorf("load overrides.tsv: %w", err)
 		}
@@ -74,15 +91,15 @@ func LoadWithOptions(dataDir string, opts Options) (*Lemmatizer, error) {
 		}
 		ovCnt += n
 	}
-	types, err := loadTypes(dataDir)
+	types, err := loadTypesFS(fsys)
 	if err != nil {
 		return nil, err
 	}
-	adjForms, err := loadAdjForms(dataDir)
+	adjForms, err := loadAdjFormsFS(fsys)
 	if err != nil {
 		return nil, err
 	}
-	adjToNoun, err := loadAdjNoun(dataDir)
+	adjToNoun, err := loadAdjNounFS(fsys)
 	if err != nil {
 		return nil, err
 	}
@@ -94,11 +111,6 @@ func LoadWithOptions(dataDir string, opts Options) (*Lemmatizer, error) {
 		suffixFallback: !opts.DisableSuffixFallback,
 		overridesCount: ovCnt,
 	}, nil
-}
-
-func fileExists(p string) bool {
-	_, err := os.Stat(p)
-	return err == nil
 }
 
 // Stats returns dictionary entry counts.
@@ -171,6 +183,39 @@ func Tokenize(text string) []string {
 	}
 	flush()
 	return tokens
+}
+
+// NormalizePhrase tokenizes text into lowercase alphanumeric/hyphen tokens, strips
+// surrounding punctuation and repeated whitespace, and joins them with a single space.
+// When keepYo is false (recommended for caching and deduplication), 'ё'/'Ё' is normalized to 'е'.
+func NormalizePhrase(text string, keepYo bool) string {
+	toks := Tokenize(text)
+	if len(toks) == 0 {
+		return ""
+	}
+	if !keepYo {
+		for i, t := range toks {
+			toks[i] = normYo(t)
+		}
+	}
+	return strings.Join(toks, " ")
+}
+
+// MakeStopWords builds a normalized stop-word set for LemmaKeyWithStop and SemanticKeyWithStop.
+// Each word is trimmed, lowercased, and stored in both original and ё->е normalized forms.
+func MakeStopWords(words []string) map[string]struct{} {
+	out := make(map[string]struct{}, len(words))
+	for _, w := range words {
+		w = strings.ToLower(strings.TrimSpace(w))
+		if w == "" {
+			continue
+		}
+		out[w] = struct{}{}
+		if wn := normYo(w); wn != w {
+			out[wn] = struct{}{}
+		}
+	}
+	return out
 }
 
 // Word returns the normalized lemma (ё -> е) for a single token.
@@ -284,6 +329,11 @@ func (l *Lemmatizer) LemmaKeyWithStop(text string, stop map[string]struct{}) str
 			if _, skip := stop[t]; skip {
 				continue
 			}
+			if tn := normYo(t); tn != t {
+				if _, skip := stop[tn]; skip {
+					continue
+				}
+			}
 		}
 		lm := l.Word(t)
 		if lm == "" {
@@ -338,6 +388,11 @@ func (l *Lemmatizer) SemanticKeyWithStop(text string, stop map[string]struct{}) 
 		if stop != nil {
 			if _, skip := stop[t]; skip {
 				continue
+			}
+			if tn := normYo(t); tn != t {
+				if _, skip := stop[tn]; skip {
+					continue
+				}
 			}
 		}
 		lm := l.Word(t)

@@ -4,6 +4,9 @@ from __future__ import annotations
 import ctypes
 import platform
 from pathlib import Path
+from typing import Iterable
+
+EXPECTED_ABI_VERSION = 1
 
 
 def _lib_filename() -> str:
@@ -26,6 +29,13 @@ def find_shared_library(explicit: str | Path | None = None) -> Path | None:
         if cand.exists():
             return cand
     return None
+
+
+def _encode_stopwords(stopwords: Iterable[str] | None) -> bytes | None:
+    if stopwords is None:
+        return None
+    words = [str(w).strip() for w in stopwords if str(w).strip()]
+    return "\n".join(words).encode("utf-8")
 
 
 class NativeLib:
@@ -52,6 +62,23 @@ class NativeLib:
         lib.rulemma_free_str.argtypes = [ctypes.c_void_p]
         lib.rulemma_free_str.restype = None
 
+        # Check C-ABI version (added in v0.2.1; tolerate pre-0.2.1 libs gracefully for backward compatibility)
+        self.abi_version: int = 0
+        self.version: str = "0.2.0"
+        if hasattr(lib, "rulemma_abi_version"):
+            lib.rulemma_abi_version.argtypes = []
+            lib.rulemma_abi_version.restype = ctypes.c_int
+            self.abi_version = int(lib.rulemma_abi_version())
+            if self.abi_version != EXPECTED_ABI_VERSION:
+                raise RuntimeError(
+                    f"Incompatible librulemma ABI version {self.abi_version} "
+                    f"(expected {EXPECTED_ABI_VERSION}). Rebuild with: make build-lib"
+                )
+        if hasattr(lib, "rulemma_version"):
+            lib.rulemma_version.argtypes = []
+            lib.rulemma_version.restype = ctypes.c_void_p
+            self.version = self._take_str(lib.rulemma_version())
+
         lib.rulemma_load.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
         lib.rulemma_load.restype = ctypes.c_int64
 
@@ -72,6 +99,34 @@ class NativeLib:
             fn = getattr(lib, fn_name)
             fn.argtypes = [ctypes.c_int64, ctypes.c_char_p]
             fn.restype = ctypes.c_void_p
+
+        self._has_normalize = hasattr(lib, "rulemma_normalize_phrase")
+        if self._has_normalize:
+            lib.rulemma_normalize_phrase.argtypes = [ctypes.c_char_p, ctypes.c_int]
+            lib.rulemma_normalize_phrase.restype = ctypes.c_void_p
+
+        self._has_stop_api = (
+            hasattr(lib, "rulemma_lemma_key_stop")
+            and hasattr(lib, "rulemma_semantic_key_stop")
+            and hasattr(lib, "rulemma_batch_stop")
+        )
+        if self._has_stop_api:
+            lib.rulemma_lemma_key_stop.argtypes = [ctypes.c_int64, ctypes.c_char_p, ctypes.c_char_p]
+            lib.rulemma_lemma_key_stop.restype = ctypes.c_void_p
+
+            lib.rulemma_semantic_key_stop.argtypes = [ctypes.c_int64, ctypes.c_char_p, ctypes.c_char_p]
+            lib.rulemma_semantic_key_stop.restype = ctypes.c_void_p
+
+            lib.rulemma_batch_stop.argtypes = [
+                ctypes.c_int64,
+                ctypes.c_char_p,
+                ctypes.c_int,
+                ctypes.c_int,
+                ctypes.c_char_p,
+                ctypes.c_int,
+                ctypes.POINTER(ctypes.c_int),
+            ]
+            lib.rulemma_batch_stop.restype = ctypes.c_void_p
 
         lib.rulemma_adj_to_noun.argtypes = [ctypes.c_int64, ctypes.c_char_p, ctypes.POINTER(ctypes.c_int)]
         lib.rulemma_adj_to_noun.restype = ctypes.c_void_p
@@ -151,6 +206,11 @@ class NativeLib:
             "overrides": int(e.value),
         }
 
+    def normalize_phrase(self, text: str, *, keep_yo: bool = False) -> str:
+        if not self._has_normalize:
+            raise RuntimeError("librulemma does not export rulemma_normalize_phrase; rebuild with: make build-lib")
+        return self._take_str(self._lib.rulemma_normalize_phrase(text.encode("utf-8"), 1 if keep_yo else 0))
+
     def word(self, handle: int, w: str) -> str:
         return self._take_str(self._lib.rulemma_word(handle, w.encode("utf-8")))
 
@@ -160,8 +220,24 @@ class NativeLib:
     def lemma_key(self, handle: int, text: str) -> str:
         return self._take_str(self._lib.rulemma_lemma_key(handle, text.encode("utf-8")))
 
+    def lemma_key_stop(self, handle: int, text: str, stopwords: Iterable[str] | None) -> str:
+        if stopwords is None:
+            return self.lemma_key(handle, text)
+        if not self._has_stop_api:
+            raise RuntimeError("librulemma does not export rulemma_lemma_key_stop; rebuild with: make build-lib")
+        stop_b = _encode_stopwords(stopwords)
+        return self._take_str(self._lib.rulemma_lemma_key_stop(handle, text.encode("utf-8"), stop_b))
+
     def semantic_key(self, handle: int, text: str) -> str:
         return self._take_str(self._lib.rulemma_semantic_key(handle, text.encode("utf-8")))
+
+    def semantic_key_stop(self, handle: int, text: str, stopwords: Iterable[str] | None) -> str:
+        if stopwords is None:
+            return self.semantic_key(handle, text)
+        if not self._has_stop_api:
+            raise RuntimeError("librulemma does not export rulemma_semantic_key_stop; rebuild with: make build-lib")
+        stop_b = _encode_stopwords(stopwords)
+        return self._take_str(self._lib.rulemma_semantic_key_stop(handle, text.encode("utf-8"), stop_b))
 
     def adj_to_noun(self, handle: int, w: str) -> tuple[str, bool]:
         matched = ctypes.c_int(0)
@@ -193,5 +269,28 @@ class NativeLib:
         payload = "\n".join(str(t).replace("\n", " ").replace("\r", " ") for t in texts).encode("utf-8")
         out_len = ctypes.c_int(0)
         ptr = self._lib.rulemma_batch(handle, payload, len(payload), int(mode), int(workers), ctypes.byref(out_len))
+        joined = self._take_bytes_n(ptr, int(out_len.value))
+        return joined.split("\n")
+
+    def batch_stop(
+        self,
+        handle: int,
+        texts: list[str],
+        mode: int,
+        stopwords: Iterable[str] | None,
+        workers: int,
+    ) -> list[str]:
+        if stopwords is None:
+            return self.batch(handle, texts, mode, workers)
+        if not texts:
+            return []
+        if not self._has_stop_api:
+            raise RuntimeError("librulemma does not export rulemma_batch_stop; rebuild with: make build-lib")
+        payload = "\n".join(str(t).replace("\n", " ").replace("\r", " ") for t in texts).encode("utf-8")
+        stop_b = _encode_stopwords(stopwords)
+        out_len = ctypes.c_int(0)
+        ptr = self._lib.rulemma_batch_stop(
+            handle, payload, len(payload), int(mode), stop_b, int(workers), ctypes.byref(out_len)
+        )
         joined = self._take_bytes_n(ptr, int(out_len.value))
         return joined.split("\n")

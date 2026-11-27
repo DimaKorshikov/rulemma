@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "dict_version": "2026.11.2",
+  "engine_min_version": "0.2.2",
+  "files": {
+    "lemmas": "lemmas.tsv.gz",
+    "adj_forms": "adj_forms.tsv.gz",
+    "types": "types.tsv.gz",
+    "adj_noun": "adj_noun.tsv.gz",
+    "overrides": "overrides.tsv"
+  },
+  "counts": {
+    "lemmas": 204839,
+    "adj_forms": 74094,
+    "types": 4662,
+    "adj_noun": 4030,
+    "overrides": 383
+  },
+  "sha256": {
+    "lemmas.tsv.gz": "2b082f9e69156d4bc5832bc3f60111e9de62a8969d6521ff8dc8d0f7a5593c09",
+    "adj_forms.tsv.gz": "bfbaa408c4713b0b71b986faefd73e39c31de2c105ed9556988c3e98af62eaac",
+    "types.tsv.gz": "340628a69b290a1c9cc3689397069352964fe8e10c411c35d716ffc644cfe7ba",
+    "adj_noun.tsv.gz": "891ae5c0c13207a8ba4e19a8258d6d0b75011cef29049f34b81a9ff7db553c0c",
+    "overrides.tsv": "97ff3ec80dc2a2bb5adff0c4a42613995f4894850736075f316b2a2bff95b94b"
+  }
+}
