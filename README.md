@@ -1,30 +1,162 @@
-# rulemma
+<div align="center">
 
-[![CI](https://github.com/DimaKorshikov/rulemma/actions/workflows/ci.yml/badge.svg)](https://github.com/DimaKorshikov/rulemma/actions/workflows/ci.yml)
-[![Website](https://img.shields.io/badge/website-rulemma.ru-1f6feb)](https://rulemma.ru/)
-[![Go Version](https://img.shields.io/badge/Go-1.21%2B-00ADD8?logo=go)](https://go.dev/)
-[![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+<a href="https://rulemma.ru/">
+  <img src="assets/cover.jpg" alt="rulemma — словарный движок морфологии русского языка" width="900" />
+</a>
 
-**Сайт:** [rulemma.ru](https://rulemma.ru/) · **Исходный код:** [github.com/DimaKorshikov/rulemma](https://github.com/DimaKorshikov/rulemma) · **История изменений:** [CHANGELOG.md](CHANGELOG.md)
+<h1>rulemma</h1>
 
-Словарный лемматизатор, компактный морфоанализатор и движок склонения русского языка и поисковых e-commerce запросов на Go с нативными Python-биндингами (`ctypes` к `librulemma.so` / `.dylib`) без внешних зависимостей. Умеет лемматизировать слова и тексты, нормализовать фразы (`ё -> е`) и смешанные RU/EN омоглифы, строить канонические и технические ключи (`2,6 л.с.`, `100×100 см`, `б/у`, `m.2`, `18+`, `12 В`, связки предлогов), сводить относительные прилагательные к существительным, разбирать грамматические признаки и омонимы (`analyze`, `prep_governs`), склонять слова и короткие именные группы (`inflect_phrase`), согласовывать числа (`21 товар`) и собирать SEO-названия.
+<p>Словарный лемматизатор, компактный морфоанализатор и движок склонения русского языка<br />
+Go (stdlib) · Python (ctypes, 0 зависимостей) · CLI · WebAssembly</p>
 
-Авторы: **Коршиков Дмитрий и Gemini**. Лицензия: **MIT**.
+<p>
+  <a href="https://github.com/DimaKorshikov/rulemma/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/DimaKorshikov/rulemma/ci.yml?style=flat-square&label=CI" alt="CI" /></a>
+  <a href="https://rulemma.ru/"><img src="https://img.shields.io/badge/website-rulemma.ru-C46542?style=flat-square" alt="Website rulemma.ru" /></a>
+  <a href="https://github.com/DimaKorshikov/rulemma/releases"><img src="https://img.shields.io/badge/release-v0.4.0-4E7B99?style=flat-square" alt="Release v0.4.0" /></a>
+  <a href="https://go.dev/"><img src="https://img.shields.io/badge/Go-1.21%2B-4E7B99?style=flat-square" alt="Go 1.21+" /></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.9%2B-4F7D63?style=flat-square" alt="Python 3.9+" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-2E3538?style=flat-square" alt="License MIT" /></a>
+</p>
+
+<p>
+  <a href="https://rulemma.ru/">Сайт</a> ·
+  <a href="https://rulemma.ru/tools/">Попробовать в браузере (WASM)</a> ·
+  <a href="#динамика-версий">Динамика версий</a> ·
+  <a href="#сравнение-с-конкурентами-и-бенчмарк">Бенчмарк</a> ·
+  <a href="#быстрый-старт">Быстрый старт</a> ·
+  <a href="#словари-и-настройка-под-свой-домен">Словари</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
+
+<p><sub>37.1 МБ RSS в Python (меньше pymorphy3) · 682 309 запр/с (1 млн за 1.47 с) · 59 мс старт в Go · 1.09 МБ WASM</sub></p>
+
+</div>
+
+---
 
 ## Зачем появилась эта библиотека
 
-Стандартные морфологические анализаторы русского языка создавались под художественную прозу и новости. Когда на вход поступают миллионы коротких поисковых запросов и карточек товаров, возникают три типичные проблемы:
+Стандартные морфологические анализаторы русского языка создавались под художественную прозу и новости. На миллионах коротких поисковых запросов и карточек каталога они системно ошибаются на брендах, причастиях, технических характеристиках и упираются в GIL.
 
-1. Галлюцинации на новых словах, брендах в кириллице, единицах измерения и омонимах. Анализатор без контекста ошибочно преобразует `спрей` в `спреть`, `кофемашина` в `кофемашин`, `худи` в `худить`, `сяоми` в `сяомь`, `см` в `смотреть`, `витамин е` в `витамин быть`, а причастия вроде `оцинкованные` и `встраиваемые` — в глаголы `оцинковать`/`встраивать`.
-2. Разъезжаются одинаковые по смыслу запросы (и склеиваются разные по характеристикам). Обычный лемматизатор оставляет `зимние кроссовки` и `кроссовки на зиму`, `детский рюкзак` и `рюкзак для детей` в разных кластерах, а наивная сортировка токенов склеивает `2,6 л.с.` с `6,2 л.с.`, `100×100 см` со `100 см` и `без сахара с молоком` с `с сахаром без молока`.
-3. Производительность на больших массивах. В Python разбор десятков миллионов запросов через нейросетевые теггеры или внешние процессы упирается в тысячи запросов в секунду, GIL и сотни мегабайт RAM.
+| Задача | Обычный анализатор (OpenCorpora без очистки) | rulemma 0.4.0 |
+|---|---|---|
+| Бренды и единицы измерения | спрей → спреть, худи → худить, сяоми → сяомь, см → смотреть | спрей, худи, сяоми, см, кофемашина |
+| Причастия в карточках | оцинкованные → оцинковать, встраиваемые → встраивать | оцинкованный, встраиваемый (3 755 причастий) |
+| Неявные дубли запросов | зимние кроссовки ≠ кроссовки на зиму | Одинаковый `semantic_key`: зима кроссовок |
+| Характеристики и отрицания | 2,6 л.с. == 6,2 л.с., 100×100 см == 100 см, без сахара == с сахаром | Разные ключи в `profile="technical"` + сохранение «без» |
+| Склонение товарных фраз | Склоняет бренды, артикулы и предложные хвосты | стиральная машина LG F2V5 → стиральную машину LG F2V5 |
+| Скорость и память | 2 500 запр/с без кэша, GIL, сотни МБ у DAWG/нейросетей | 552 213–682 309 запр/с в горутинах Go, 37.1 МБ RSS |
 
-`rulemma` решает эти задачи за счёт очищенного словаря (`214 196` словоформ, словарно-проверяемый OOV-fallback без обрубков), таблицы из `3 960` проверенных пар `прилагательное -> существительное`, `74 098` форм согласования, приоритетного `data/overrides.tsv` (`470` записей), лениво подгружаемых компактных таблиц морфологии (`127 163` словоформ + `11 909` омонимов + парадигмальный OOV-вывод) и склонения (`44 819` записей: `347` парадигм на `44 472` лемм), а также пакетной обработки в горутинах Go.
+Внутри ядра — очищенный словарь на 214 196 словоформ в байтовой арене без GC-указателей, словарно-проверяемый OOV-fallback без обрубков, таблица из 3 960 пар прилагательное → существительное, 74 098 форм согласования, приоритетный `data/overrides.tsv` (469 правил) и лениво подгружаемые таблицы морфологии (127 163 словоформ, 11 909 омонимов, парадигмальный OOV-вывод) и склонения (44 819 записей: 347 парадигм на 44 472 лемм).
 
-## Быстрый старт на Python
+---
 
-Для сборки нативной библиотеки `librulemma.so` (или `.dylib` на macOS) нужны **Go 1.21+** и компилятор C (`gcc` или `clang`). В рантайме Python не требуется ни одного стороннего пакета.
+<a id="динамика-версий"></a>
+
+## Динамика версий (v0.2.0 → v0.4.0)
+
+За пять релизов объём словарных и грамматических таблиц вырос почти вдвое (250k → 481k записей), точность доведена до 99.2% / 100.0% / 100.0%, а переход на байтовую арену без GC-указателей в v0.4.0 снизил базовый RSS ниже pymorphy3 (62.4 → 37.1 МБ) и ускорил загрузку в 2–3.2 раза.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/version-evolution-dark.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="assets/version-evolution-light.svg" />
+    <img src="assets/version-evolution-light.svg" alt="График динамики версий rulemma v0.2.0 — v0.4.0: память RSS, холодный старт, охват словарей и WASM" width="960" />
+  </picture>
+</p>
+
+| Версия | Записей | Старт (Py / Go) | База RSS | Что появилось |
+|---|---:|---:|---:|---|
+| v0.2.0 | 250k | 209 мс / — | — | Ядро Go + Python CGO, `lemma_key`, `semantic_key`, `BuildSEOName` |
+| v0.2.2 | 288k | 172 мс / — | 60.9 МБ | 3 755 причастий, защита 2–3-букв. слов, `embedded`, ABI v1 |
+| v0.3.0 | 461k | 198 мс / — | 62.1 МБ | `profile="technical"`, омоглифы, `Analyze`, `InflectPhrase`, fork-защита |
+| v0.3.1 | 481k | 185 мс / 187 мс | 62.4 МБ | 3-ступенчатый OOV-вывод, чистка 2 694 артефактов и 50 пар `adj_noun` |
+| **v0.4.0** | 481k | 93 мс / 59 мс | 37.1 МБ | Байтовая арена без GC (5.5k объектов вместо 297k), `LoadMemory`, WASM 1.09 МБ |
+
+<details>
+<summary>Подробное сравнение Go, Python и WebAssembly в v0.4.0 (до и после)</summary>
+
+<br />
+
+| Среда и метрика | До (v0.3.1 / v0.3.0 WASM) | После (v0.4.0) | Изменение |
+|---|---:|---:|---:|
+| Go `Load("data")`: время / HeapAlloc / HeapObjects | 187.2 мс / 37.1 МБ / 297 491 | 59.0 мс / 11.3 МБ / 5 522 | 3.2× быстрее, 54× меньше GC |
+| Go RSS: `Load("data")` / `Preload()` (все 8 таблиц) | 42.0 МБ / 79.0 МБ | 15.6 МБ / 29.2 МБ | −26.4 МБ / −49.8 МБ |
+| Python `RuLemma()`: старт / RSS (база → все 8) | 181 мс / 56.4 → 93.5 МБ | 55.5 мс / 30.8 → 42.3 МБ | 3.3× быстрее, −51.2 МБ |
+| WASM `full` (`wasm_embed`): старт / память | 881.4 мс / 156.8 МБ | 317.2 мс / 80.7 МБ | 2.8× быстрее, −76.1 МБ |
+| WASM `core` (`rulemma_core`): gzip / старт / память | 3.69 МБ / 881.4 мс / 156.8 МБ | 2.29 МБ / 260.2 мс / 39.3 МБ | −38% вес, 4× меньше RAM |
+| WASM `thin` (`LoadMemory`): gzip / старт / память | 3.69 МБ / 881.4 мс / 156.8 МБ | 1.09 МБ / 258.5 мс / 46.1 МБ | 3.4× быстрее, −110.7 МБ |
+
+</details>
+
+---
+
+<a id="сравнение-с-конкурентами-и-бенчмарк"></a>
+
+## Сравнение с конкурентами и бенчмарк
+
+Сравнение `rulemma 0.4.0` с семью популярными библиотеками русского NLP выполнено одним воспроизводимым скриптом [benchmarks/compare_models.py](benchmarks/compare_models.py). Каждая библиотека запускалась в отдельном изолированном процессе для честного замера пикового RSS (20 000 уникальных 7-словных запросов, 751 уникальных токенов, Linux x86_64, AMD Ryzen 9 5950X, Python 3.12.3, Go 1.23).
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/benchmark-dark.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="assets/benchmark-light.svg" />
+    <img src="assets/benchmark-light.svg" alt="Бенчмарк rulemma 0.4.0 против 7 библиотек русского NLP: скорость батча, точность E-Commerce и пик RSS" width="960" />
+  </picture>
+</p>
+
+| Библиотека | Общий RU | E-Com | Дедуп F1 | Пик RSS | 1 запрос | Батч 20k |
+|---|---:|---:|---:|---:|---:|---:|
+| **rulemma 0.4.0** (Go CGO, MIT) | 99.2% | 100.0% | 100.0% (FP=0) | 65.3 МБ* | 132.3 мкс | 552 213 запр/с |
+| [pymorphy3](https://github.com/no-plagiarism/pymorphy3) (без кэша) | 94.7% | 41.7% | 18.2% (FP=0) | 45.7 МБ | 394.8 мкс | 2 532 запр/с |
+| [pymorphy3](https://github.com/no-plagiarism/pymorphy3) (`lru_cache` 200k) | 94.7% | 41.7% | 18.2% (FP=0) | 45.7 МБ | 5.6 мкс | 178 404 запр/с |
+| [mawo-pymorphy3](https://pypi.org/project/mawo-pymorphy3/) 1.0.4 | 81.2% | 76.7% | 14.0% (FP=0) | 39.8 МБ | 452.0 мкс | 2 231 запр/с |
+| [SteosMorphy](https://github.com/SteosOfficial/SteosMorphy-py) 1.1.1 | 84.2% | 76.7% | 18.2% (FP=0) | 544.9 МБ | 3 165.9 мкс | 779 запр/с |
+| [Natasha](https://github.com/natasha/natasha) (Slovnet) | 95.5% | 74.2% | 13.6% (FP=1) | 234.4 МБ | 818.5 мкс | 1 221 запр/с |
+| [simplemma](https://github.com/adbar/simplemma) (ru) | 93.2% | 90.0% | 14.0% (FP=0) | 163.4 МБ | 8.0 мкс | 125 178 запр/с |
+| [pymystem3](https://github.com/nlpub/pymystem3) (MyStem) | 92.5% | 89.2% | 22.2% (FP=0) | 32.8 МБ† | 137.2 мкс | 7 242 запр/с |
+| [SnowballStemmer](https://github.com/snowballstem/snowball) (ru) | 16.5%‡ | 49.2%‡ | 29.2% (FP=1) | 21.8 МБ | 126.3 мкс | 7 916 запр/с |
+
+<sub>*У rulemma 0.4.0 сразу после загрузки базовых словарей RSS процесса составляет 37.1 МБ (ниже pymorphy3 с его 45.0 МБ; в чистом процессе Python 30.8 МБ, в чистом Go 15.6 МБ RSS / 11.3 МБ HeapAlloc). Пик 65.3 МБ возникает во время параллельного батча из 20 000 строк. У SteosMorphy словарь на диске занимает 445 МБ против 2.6 МБ у rulemma.<br />†В pymystem3 бинарник mystem работает в дочернем процессе, поэтому RUSAGE_SELF отражает только Python-обёртку.<br />‡SnowballStemmer возвращает усечённые основы, а не словарные леммы.</sub>
+
+На масштабировании из Python (уникальные 7-словные запросы) rulemma 0.4.0 обрабатывает **1 000 000 запросов за 1.47–1.60 с**: 623 888 запр/с для `lemmatize_batch` и 682 309 запр/с для `semantic_keys` (однопроходный `lemmatize_all` возвращает все 3 колонки в 1.2–1.4 раза быстрее трёх раздельных вызовов). В чистом Go один вызов `LemmaKey` занимает ~3.6 мкс (664 Б, 20 аллокаций), а загрузка `Load("data")` — ~59 мс. Полные сырые замеры: [benchmarks/results.json](benchmarks/results.json) и [benchmarks/RESULTS.md](benchmarks/RESULTS.md).
+
+<details>
+<summary>Примеры ответов: rulemma против pymorphy3, MyStem и simplemma</summary>
+
+<br />
+
+| Слово | rulemma 0.4.0 | pymorphy3 | MyStem | simplemma |
+|---|---|---|---|---|
+| спрей | спрей | спреть | спрей | спрей |
+| кофемашина | кофемашина | кофемашин | кофемашина | кофемашина |
+| кружка | кружка | кружка | кружка | кружок |
+| худи | худи | худить | худить | худи |
+| сяоми | сяоми | сяомь | сяомить | сяоми |
+| см | см | смотреть | см | сантиметр |
+| мелки | мелок | мелок | мелкий | мелкий |
+| оцинкованные | оцинкованный | оцинковать | оцинковывать | оцинкованный |
+| роботов-пылесосов | робот-пылесос | робот-пылесос | робот-пылесос | роботов-пылесосов |
+| цветов (без контекста) | цвет | цвет | цветок | цветок |
+
+</details>
+
+## Открытые оговорки по методике замера
+
+1. **Авторство тестовых наборов.** Все три файла ([benchmarks/gold_general_ru.tsv](benchmarks/gold_general_ru.tsv), [benchmarks/gold_ecommerce_ru.tsv](benchmarks/gold_ecommerce_ru.tsv), [benchmarks/gold_dedup_pairs.tsv](benchmarks/gold_dedup_pairs.tsv)) составлены авторами rulemma. В v0.2.1 были закрыты 5 реальных промахов, найденных при выпуске v0.2.0 (отпариватели, дочерей, воробьев, автодорог, большие), и зафиксированы в [CHANGELOG.md](CHANGELOG.md) и золотых тестах [tests/golden/](tests/golden/). Единственное расхождение на `gold_general_ru.tsv` (132/133, 99.2%) — честный бесконтекстный омоним цветов → цвет (в тесте ожидается цветок).
+2. **Дедупликация F1 у конкурентов (13.6%–22.2%).** Из 40 положительных пар в `gold_dedup_pairs.tsv` 35 проверяют склейку относительного прилагательного с существительным (зимние кроссовки ↔ кроссовки на зиму, кожаный ремень ↔ ремень из кожи) и 5 — обычное словоизменение. Без `adj -> noun` метод `lemma_key` набирает те же 22.2%, а `semantic_key` — 100.0% (FP=0) и не склеивает 15 пар-ловушек (умные часы ≠ часы ум, мороженая рыба ≠ мороженое рыба, соленые огурцы ≠ соль огурцы).
+3. **Одиночный вызов из Python.** При вызове по одному запросу в цикле pymorphy3 с `lru_cache` (5.6 мкс) и simplemma (8.0 мкс) быстрее rulemma (132.3 мкс) из-за перехода `ctypes → CGO`. Преимущество Go раскрывается на батчах (`lemmatize_all`, `lemmatize_batch`, `semantic_keys`, `keys_batch`), в CLI и при вызове из Go.
+4. **Кэш pymorphy3.** В тесте на 20 000 запросов словарь ограничен 751 уникальными токенами, поэтому `lru_cache(200_000)` показывает 178 404 запр/с. На реальных логах с миллионами уникальных артикулов и опечаток скорость падает в сторону режима без кэша (2 532 запр/с).
+
+---
+
+<a id="быстрый-старт"></a>
+
+## Быстрый старт
+
+### Python (нативный CGO через `ctypes`, 0 зависимостей)
+
+Для сборки разделяемой библиотеки `librulemma.so` (или `.dylib` на macOS) нужны Go 1.21+ и компилятор C (`gcc` или `clang`). В рантайме Python сторонние пакеты не требуются.
 
 ```bash
 git clone https://github.com/DimaKorshikov/rulemma.git
@@ -34,78 +166,84 @@ pip install .
 ```
 
 ```python
-from rulemma import (
-    DEFAULT_STOP_WORDS,
-    GENERAL_STOP_WORDS,
-    RuLemma,
-    normalize_homoglyphs,
-    normalize_phrase,
-    preposition,
-)
+from rulemma import RuLemma, normalize_homoglyphs, normalize_phrase, preposition
 
-# Быстрая нормализация фразы и ремонт смешанных кириллица+латиница омоглифов
-print(normalize_phrase("  Чёрная кофемашина, 35 см! "))               # "черная кофемашина 35 см"
-print(normalize_homoglyphs("Кабель 5cм intеl рrо"))                   # "Кабель 5см intel pro"
+print(normalize_phrase("  Чёрная кофемашина, 35 см! "))  # черная кофемашина 35 см
+print(normalize_homoglyphs("Кабель 5cм intеl рrо"))      # Кабель 5см intel pro
 
 with RuLemma(min_version="0.4.0") as lem:
     print(lem.backend, lem.library_version, lem.abi_version)  # native 0.4.0 1
-    print(lem.dict_version)                                   # 2026.11.5
+    print(lem.word("спрей"), lem.word("см"))                  # спрей см
+    print(lem.lookup_word("судебного"))                       # ('судебный', 'rule')
 
-    # Лемматизация слов и фраз (буква ё нормализуется в е) + источник решения
-    print(lem.word("спрей"))                        # "спрей"
-    print(lem.word("см"))                           # "см" (не "смотреть"!)
-    print(lem.word("роботов-пылесосов"))            # "робот-пылесос"
-    print(lem.lookup_word("судебного"))             # ("судебный", "rule")
-    print(lem.lemmatize("Купить зимние кроссовки")) # "купить зимний кроссовок"
+    # Смысловой ключ и технический профиль (дроби, размеры, слэши, отрицания)
+    a = lem.semantic_key("зимние кроссовки найк")
+    b = lem.semantic_key("кроссовки на зиму найк")
+    assert a == b == "зима кроссовок найк"
+    print(lem.semantic_key("зимние ботинки б/у", profile="technical"))
+    # "б/у ботинок зима"
 
-    # Канонический ключ: дефолт обратно совместим с v0.2, а profile="technical" бережёт характеристики
-    assert lem.semantic_key("шоколад без сахара") != lem.semantic_key("шоколад с сахаром")
-    assert lem.semantic_key("зимние кроссовки найк") == lem.semantic_key("кроссовки на зиму найк")
-    assert lem.semantic_key("бензопила 2,6 л.с.", profile="technical") != lem.semantic_key("бензопила 6,2 л.с.", profile="technical")
-    assert lem.semantic_key("термос 0,5 л", profile="technical") == lem.semantic_key("термос 0.5 л", profile="technical")
-    assert lem.semantic_key("винт 5 мм", profile="technical") == lem.semantic_key("винт 5мм", profile="technical")
-    print(lem.semantic_key("зимние ботинки б/у", profile="technical"))  # "б/у ботинок зима"
+    # Морфоанализ (с OOV-выводом) и склонение коротких товарных фраз
+    assert lem.prep_governs("с", "дипломом") is True
+    print(lem.inflect_phrase("стиральная машина LG F2V5", "accs"))
+    # ('стиральную машину LG F2V5', True)
+    print(lem.agree_number(21, "товар"), preposition("с", "скидкой"))
+    # 21 товар со
 
-    # Связки предлогов, защита главного слова, дефисы и компактные коды моделей
-    assert lem.key("кофе без сахара с молоком", preserve_prep_bindings=True) != lem.key("кофе с сахаром без молока", preserve_prep_bindings=True)
-    assert lem.key("пластиковые окна", bind_purpose_prep=True) != lem.key("пластик для окон", bind_purpose_prep=True)
-    assert lem.key("зеркальный пластик", keep_words={"пластик"}) != lem.key("пластиковое зеркало", keep_words={"пластик"})
-
-    # Компактный морфоанализ и управление предлогов (подгружаются лениво при первом вызове)
-    print(lem.analyze("пил")["candidates"])         # пить (VERB) | пил (NOUN) | пила (NOUN)
-    assert lem.prep_governs("с", "цинком") is True
-    assert lem.prep_governs("с", "1000") is False   # "витамин С 1000" — не предлог
-
-    # Склонение слов и коротких именных групп (защита брендов, артикулов, Pltm, Fixd и хвостов)
-    print(lem.inflect_phrase("стиральная машина LG F2V5", "accs"))  # ("стиральную машину LG F2V5", True)
-    print(lem.inflect_phrase("Краснодарский край", "loct"))         # ("Краснодарском крае", True)
-    print(lem.agree_number(21, "товар"), lem.agree_number(1.5, "товар"))  # "21 товар", "1.5 товара"
-    print(preposition("с", "скидкой"), preposition("о", "акциях"))        # "со", "об"
-
-    # Однопроходный параллельный батч в горутинах Go (без GIL): сразу (lem, lemma_key, semantic_key)
-    queries = ["зимние кроссовки найк", "кроссовки на зиму найк", "кофемашина делонги"]
+    # Однопроходный параллельный батч в горутинах Go (без GIL)
+    queries = ["зимние кроссовки найк", "кроссовки на зиму найк"]
     print(lem.lemmatize_all(queries, profile="technical"))
-    print(lem.semantic_keys(queries, profile="technical"))
-
-    # Согласование прилагательных/причастий + сборка SEO-заголовка
-    print(lem.agree_adjective("оцинкованные", "Ведро"))  # ("оцинкованное", True)
-    print(lem.build_seo_name("Сумка кожаная", "Сумка", ["кожаный", "синие", "женские"], 100))
-    # ("Сумка кожаная, синяя, женская", 2, 2)
 ```
 
-Если вы обрабатываете тысячи и миллионы строк из Python, передавайте их списками в `lemmatize_all`, `lemmatize_batch`, `lemma_keys`, `semantic_keys`, `keys_batch`, `lemmatize_and_keys` или `normalize_batch`. Переход между `ctypes` и `CGO` выполняется один раз на весь батч, а обработка идёт параллельно на всех ядрах CPU.
+Для обработки тысяч и миллионов строк передавайте списки в `lemmatize_all`, `lemmatize_batch`, `lemma_keys`, `semantic_keys` или `keys_batch` — переход `ctypes → CGO` выполняется один раз на весь батч, а работа идёт параллельно на всех ядрах CPU.
 
-> **Многопроцессность и `os.fork()`:** рантайм Go запускает фоновые потоки при первой загрузке `librulemma.so`. В Python используйте `multiprocessing.get_context("spawn")` либо создавайте `RuLemma()` только **после** `fork()`. При вызове методов в форкнутом потомке после загрузки библиотеки в родителе `rulemma` безопасно поднимает `RuntimeError` вместо зависания (а `close()`/`__del__` не входят в Go).
+> [!IMPORTANT]
+> **Многопроцессность и `os.fork()`:** рантайм Go запускает фоновые потоки при загрузке `librulemma.so`. В Python используйте `multiprocessing.get_context("spawn")` либо создавайте `RuLemma()` только после `fork()`. При вызове в форкнутом потомке после загрузки библиотеки в родителе поднимается `RuntimeError` вместо зависания.
 
-## Быстрый старт на Go и CLI
+<details>
+<summary>Расширенные возможности Python API (связки предлогов, омонимы, сборка SEO-названий)</summary>
 
-Подключение как обычного Go-модуля (внешних зависимостей нет, потокобезопасность проверена через `go test -race ./...`):
+<br />
+
+```python
+from rulemma import RuLemma
+
+with RuLemma(min_version="0.4.0") as lem:
+    # Связки предлогов, защита главного слова и дроби в техпрофиле
+    k1 = lem.key("кофе без сахара с молоком", preserve_prep_bindings=True)
+    k2 = lem.key("кофе с сахаром без молока", preserve_prep_bindings=True)
+    assert k1 != k2
+
+    k3 = lem.key("пластиковые окна", bind_purpose_prep=True)
+    k4 = lem.key("пластик для окон", bind_purpose_prep=True)
+    assert k3 != k4
+
+    k5 = lem.key("зеркальный пластик", keep_words={"пластик"})
+    k6 = lem.key("пластиковое зеркало", keep_words={"пластик"})
+    assert k5 != k6
+
+    # Все словарные кандидаты для омонима и защита предлога от цифр ("витамин С 1000")
+    print(lem.analyze("пил")["candidates"])
+    assert lem.prep_governs("с", "1000") is False
+
+    # Согласование прилагательных и сборка SEO-названия с лимитом длины
+    print(lem.agree_adjective("оцинкованные", "Ведро"))  # ('оцинкованное', True)
+    print(lem.build_seo_name("Сумка кожаная", "Сумка", ["кожаный", "синие"], 100))
+    # ('Сумка кожаная, синяя', 1, 1)
+```
+
+</details>
+
+<details>
+<summary>Go (go get, embedded 2.6 МБ / -tags rulemma_core 1.2 МБ, LoadMemory)</summary>
+
+<br />
+
+Модуль не имеет внешних зависимостей; потокобезопасность проверена под `go test -race ./...`. Доступны три режима загрузки: с диска (`rulemma.Load("data")`), встраивание одной строкой через `rulemma/embedded` (2.6 МБ все 8 таблиц или 1.2 МБ ядра с `-tags rulemma_core`) и загрузка из памяти (`rulemma.LoadMemory` + отложенная `LoadTable`).
 
 ```bash
 go get github.com/DimaKorshikov/rulemma
 ```
-
-В Go доступны три способа инициализации: загрузка словарей с диска (`rulemma.Load("data")`), подключение одной строкой через опциональный субпакет `rulemma/embedded` (`//go:embed`, встраивает `2.6 МБ` всех 8 таблиц, или `1.2 МБ` ядра при сборке с `-tags rulemma_core`), либо загрузка напрямую из памяти (`rulemma.LoadMemory` / `rulemma.NewMemoryFS` + отложенная `lem.LoadTable(name, bytes)` для WebAssembly и облачных сервисов):
 
 ```go
 package main
@@ -128,18 +266,27 @@ func main() {
     fmt.Println(lem.Word("отпариватели"))                         // отпариватель
     fmt.Println(lem.SemanticKey("зимние кроссовки найк"))         // зима кроссовок найк
 
-    // Опциональный технический профиль v0.3
-    tech := rulemma.KeyOptions{Semantic: true, Profile: "technical", PreservePrepBindings: true}
-    fmt.Println(lem.KeyWithOptions("кофе без сахара с молоком", tech)) // без_сахар кофе молоко
+    tech := rulemma.KeyOptions{
+        Semantic:             true,
+        Profile:              "technical",
+        PreservePrepBindings: true,
+    }
+    fmt.Println(lem.KeyWithOptions("кофе без сахара с молоком", tech))
+    // без_сахар кофе молоко
 
-    // Компактная морфология и склонение (таблицы подгружаются лениво и потокобезопасно)
-    fmt.Println(lem.PrepGoverns("с", "цинком"))                        // true
+    fmt.Println(lem.PrepGoverns("с", "цинком")) // true
     inf, _ := lem.InflectPhrase("стиральная машина LG F2V5", "accs", "")
-    fmt.Println(inf, "|", lem.AgreeNumber(21, "товар"))                // стиральную машину LG F2V5 | 21 товар
+    fmt.Println(inf, "|", lem.AgreeNumber(21, "товар"))
+    // стиральную машину LG F2V5 | 21 товар
 }
 ```
 
-Для потоковой обработки крупных файлов есть бинарник `bin/rulemma`:
+</details>
+
+<details>
+<summary>CLI (bin/rulemma — потоковая обработка TSV и stdin в горутинах)</summary>
+
+<br />
 
 ```bash
 make build-cli
@@ -148,93 +295,94 @@ make build-cli
 ./bin/rulemma version
 ./bin/rulemma info --data data
 
-# Поток через stdin (режимы: text | key | semkey | both | all | norm; профили: default | technical)
-printf "зимние ботинки б/у\nкофе без сахара с молоком\n" | ./bin/rulemma lemmatize --mode semkey --profile technical --bind-preps
+# Поток через stdin (режимы: text | key | semkey | both | all | norm)
+printf "зимние ботинки б/у\nкофе без сахара с молоком\n" \
+  | ./bin/rulemma lemmatize --mode semkey --profile technical --bind-preps
 
-# Морфологический разбор и склонение из CLI
+# Морфологический разбор и склонение
 ./bin/rulemma analyze пил
 ./bin/rulemma inflect --case accs стиральная машина LG F2V5
 
-# Параллельная обработка TSV-файла по заданной колонке
-./bin/rulemma tsv --in queries.tsv --out queries_lem.tsv --col 0 --mode all --header --workers 16
+# Потоковый TSV (O(workers) RAM: ~58 МБ на --workers 4, до 1.6M строк/с на 32)
+./bin/rulemma tsv --in queries.tsv --out out.tsv --col 0 --mode all --workers 4
 ```
 
-## Сравнение с конкурентами и бенчмарк
+</details>
 
-Мы сравнили `rulemma 0.4.0` с семью популярными библиотеками для русского языка одним воспроизводимым скриптом [`benchmarks/compare_models.py`](benchmarks/compare_models.py). Каждая библиотека запускалась в **отдельном изолированном процессе** для честного замера пикового RSS RAM (набор батча: `20 000` уникальных 7-словных запросов, `751` уникальных токенов):
+<details>
+<summary>WebAssembly (make build-wasm — 3 профиля: thin 1.09 МБ / core 2.29 МБ / full 3.63 МБ gzip)</summary>
 
-- [pymorphy3](https://github.com/no-plagiarism/pymorphy3) `2.0.6` (MIT): морфологический анализатор на словаре OpenCorpora (без кэша и с `functools.lru_cache(maxsize=200_000)`).
-- [mawo-pymorphy3](https://pypi.org/project/mawo-pymorphy3/) `1.0.4` (MIT): оптимизированный форк `pymorphy3`.
-- [SteosMorphy](https://github.com/SteosOfficial/SteosMorphy-py) `1.1.1` (MIT): морфологический анализатор на Go DAWG с Python-обёрткой через `ctypes` и JSON.
-- [Natasha](https://github.com/natasha/natasha) `1.6.0` + [Slovnet](https://github.com/natasha/slovnet) `0.6.0` (MIT): полный контекстный нейросетевой пайплайн (`Segmenter`, `NewsEmbedding`, `NewsMorphTagger`, `MorphVocab`).
-- [simplemma](https://github.com/adbar/simplemma) `2.0.0` (MIT): многоязычный словарно-правильный лемматизатор на Python (`lang="ru"`).
-- [pymystem3](https://github.com/nlpub/pymystem3) `0.2.0` (обёртка MIT, бинарник [Яндекс MyStem](https://yandex.ru/dev/mystem/) — проприетарный).
-- [SnowballStemmer](https://github.com/snowballstem/snowball) `3.1.1` (BSD-3-Clause): алгоритмический стеммер (нижняя базовая линия).
+<br />
 
-Замер выполнен на Linux `x86_64`, процессор AMD Ryzen 9 5950X (16 ядер / 32 потока), Python `3.12.3`, Go `1.23`. Полный сырой вывод лежит в [`benchmarks/results.json`](benchmarks/results.json) и [`benchmarks/RESULTS.md`](benchmarks/RESULTS.md).
+Референсный модуль [cmd/rulemma-wasm/](cmd/rulemma-wasm/) собирается командой `make build-wasm` в три профиля:
 
-| Библиотека | Архитектура и лицензия | Общий RU (133) | E-Commerce (120) | Дедупликация F1 (55) | Холодный старт | Пик RSS RAM | 1 запрос | Батч из Python (20 000) |
-|---|---|---:|---:|---:|---:|---:|---:|---:|
-| **rulemma 0.4.0** (Go CGO) | Байтовая арена + правила (Go, MIT) | **99.2%** | **100.0%** | **100.0% (FP=0)** | 93 мс | 65.3 МБ* | 132.3 мкс | **552 213 запр/с** |
-| [pymorphy3](https://github.com/no-plagiarism/pymorphy3) (без кэша) | OpenCorpora FST (Python, MIT) | 94.7% | 41.7% | 18.2% (FP=0) | 43 мс | 45.7 МБ | 394.8 мкс | 2 532 запр/с |
-| [pymorphy3](https://github.com/no-plagiarism/pymorphy3) (`lru_cache` 200k) | OpenCorpora FST + кэш (Python, MIT) | 94.7% | 41.7% | 18.2% (FP=0) | 43 мс | 45.7 МБ | **5.6 мкс** | 178 404 запр/с |
-| [mawo-pymorphy3](https://pypi.org/project/mawo-pymorphy3/) 1.0.4 | Форк pymorphy3 (Python, MIT) | 81.2% | 76.7% | 14.0% (FP=0) | 18 мс | 39.8 МБ | 452.0 мкс | 2 231 запр/с |
-| [SteosMorphy](https://github.com/SteosOfficial/SteosMorphy-py) 1.1.1 | Go DAWG + JSON ctypes (MIT) | 84.2% | 76.7% | 18.2% (FP=0) | 330 мс | 544.9 МБ | 3 165.9 мкс | 779 запр/с |
-| [Natasha](https://github.com/natasha/natasha) ([Slovnet](https://github.com/natasha/slovnet)) | Нейросеть POS + OpenCorpora (MIT) | 95.5% | 74.2% | 13.6% (FP=1) | 408 мс | 234.4 МБ | 818.5 мкс | 1 221 запр/с |
-| [simplemma](https://github.com/adbar/simplemma) (`ru`) | Словарь + правила (Python, MIT) | 93.2% | 90.0% | 14.0% (FP=0) | 1 033 мс | 163.4 МБ | 8.0 мкс | 125 178 запр/с |
-| [pymystem3](https://github.com/nlpub/pymystem3) ([MyStem](https://yandex.ru/dev/mystem/)) | C++ бинарник (проприетарный) | 92.5% | 89.2% | 22.2% (FP=0) | 493 мс | 32.8 МБ† | 137.2 мкс | 7 242 запр/с |
-| [SnowballStemmer](https://github.com/snowballstem/snowball) (`ru`) | Стеммер (Python, BSD-3) | 16.5%‡ | 49.2%‡ | 29.2% (FP=1) | **0 мс** | 21.8 МБ | 126.3 мкс | 7 916 запр/с |
+```bash
+make build-wasm
+# bin/wasm/rulemma-thin.wasm  raw= 3.98 MB  gzip-9= 1.09 MB  (LoadMemory/LoadTable)
+# bin/wasm/rulemma-core.wasm  raw= 5.25 MB  gzip-9= 2.29 MB  (wasm_embed,rulemma_core)
+# bin/wasm/rulemma-full.wasm  raw= 6.59 MB  gzip-9= 3.63 MB  (wasm_embed)
+```
 
-*\*У `rulemma 0.4.0` за счёт байтовой арены без GC-указателей сразу после загрузки базовых словарей RSS процесса составляет **`37.1 МБ`** (включая интерпретатор Python и 20k строк теста; в чистом процессе Python `30.8 МБ` — прирост `+16.0 МБ`, в чистом Go `15.6 МБ` RSS / `11.3 МБ` HeapAlloc; меньше `pymorphy3` с его `45.0 МБ`); пик `65.3 МБ` возникает на параллельном батче из 20 000 строк. У `SteosMorphy` распакованный словарь `morph.dawg` занимает `445 МБ` на диске против `2.6 МБ` у `rulemma`.*  
-*†В `pymystem3` бинарник `mystem` работает в отдельном дочернем процессе, поэтому `RUSAGE_SELF` показывает только Python-обёртку.*  
-*‡`SnowballStemmer` возвращает усечённые основы, а не словарные леммы.*
+В режиме `thin` браузер компилирует `rulemma-thin.wasm` (1.09 МБ gzip) параллельно с загрузкой базовых таблиц (`lemmas.tsv.gz` + `adj_noun.tsv.gz` + `overrides.tsv` = 1.19 МБ), а `paradigms.tsv.gz` (214 КБ) или `morph.tsv.gz` (559 КБ) докачивает по клику через `rulemmaLoadTable` за ~33 мс (линейная память WASM — 46.1 МБ).
 
-На масштабировании из Python (уникальные 7-словные запросы) `rulemma 0.4.0` обрабатывает **1 000 000 запросов за `1.47–1.60 с`** (`623 888 запр/с` для `lemmatize_batch` и **`682 309 запр/с`** для `semantic_keys`; однопроходный `lemmatize_all` даёт все 3 колонки на `~1.2–1.4×` быстрее 3 раздельных вызовов). В чистом Go (`go test -bench=BenchmarkLemmaKey -benchmem .`) один вызов `LemmaKey` требует ~`3.6 мкс`, `664 Б` памяти и `20` аллокаций; загрузка базовых словарей `Load("data")` занимает ~`59 мс` (`11.3 МБ` `HeapAlloc`, `5 522` heap-объектов).
+</details>
 
-## Открытые оговорки по методике замера
+---
 
-1. **Авторство тестовых наборов.** Все три файла ([`benchmarks/gold_general_ru.tsv`](benchmarks/gold_general_ru.tsv), [`benchmarks/gold_ecommerce_ru.tsv`](benchmarks/gold_ecommerce_ru.tsv), [`benchmarks/gold_dedup_pairs.tsv`](benchmarks/gold_dedup_pairs.tsv)) подготовлены авторами `rulemma`. В `v0.2.1` мы закрыли 5 реальных словарных промахов, обнаруженных при выпуске `v0.2.0` (`отпариватели`, `дочерей`, `воробьев`, `автодорог`, `большие`), и зафиксировали все изменения в [CHANGELOG.md](CHANGELOG.md) и золотых тестах [`tests/golden/`](tests/golden/). Единственным оставшимся расхождением на `gold_general_ru.tsv` (`132/133`, `99.2%`) остаётся честный бесконтекстный омоним `цветов -> цвет` (в тесте ожидается `цветок`).
-2. **Почему в колонке дедупликации F1 у конкурентов 13.6% до 22.2%.** Из 40 положительных пар в `gold_dedup_pairs.tsv` 35 пар проверяют склейку относительного прилагательного с существительным (`зимние кроссовки` и `кроссовки на зиму`, `кожаный ремень` и `ремень из кожи`) и только 5 пар проверяют обычное словоизменение. Без `adj -> noun` метод `rulemma.lemma_key` показывает те же **22.2%**, а `rulemma.semantic_key` набирает **100.0% (FP=0)** и не склеивает 15 контрольных пар-ловушек (`умные часы` и `часы ум`, `мороженая рыба` и `мороженое рыба`, `ручной отпариватель` и `отпариватель для рук`, `соленые огурцы` и `соль огурцы`).
-3. **Задержка одного вызова из Python.** При вызове по одному запросу в цикле Python `pymorphy3` с `lru_cache` (`5.6 мкс`) и `simplemma` (`8.0 мкс`) быстрее `rulemma` (`132.3 мкс`) из-за накладных расходов перехода `ctypes -> CGO`. Преимущество Go раскрывается на батчах (`lemmatize_all`, `lemmatize_batch`, `lemma_keys`, `semantic_keys`, `keys_batch`), в CLI и при вызове напрямую из Go.
-4. **Кэш `pymorphy3`.** В тесте на 20 000 уникальных 7-словных запросов словарь слов ограничен `751` уникальными токенами, поэтому `lru_cache(200_000)` показывает высокий процент попаданий (`178 404 запр/с`). На реальных логах с миллионами уникальных опечаток и артикулов скорость `pymorphy3` падает в сторону режима без кэша (`2 532 запр/с`).
+<a id="архитектура-конвейера"></a>
 
-## Примеры работы слово в слово
+## Архитектура конвейера
 
-| Входное слово | `rulemma 0.4.0` | `pymorphy3` | `mawo-pymorphy3` | `SteosMorphy` | `Natasha` | `MyStem` | `simplemma` |
-|---|---|---|---|---|---|---|---|
-| `спрей` | **спрей** | спреть | спря | **спрей** | **спрей** | **спрей** | **спрей** |
-| `кофемашина` | **кофемашина** | кофемашин | **кофемашина** | **кофемашина** | кофемашин | **кофемашина** | **кофемашина** |
-| `кружка` | **кружка** | **кружка** | **кружка** | **кружка** | кружок | **кружка** | кружок |
-| `худи` | **худи** | худить | худить | худить | худь | худить | **худи** |
-| `сяоми` | **сяоми** | сяомь | **сяоми** | сяомь | сяомь | сяомить | **сяоми** |
-| `см` | **см** | смотреть | **см** | **см** | **см** | **см** | сантиметр |
-| `мелки` | **мелок** | **мелок** | **мелок** | **мелок** | **мелок** | мелкий | мелкий |
-| `оцинкованные` | **оцинкованный** | оцинковать | оцинковать | **оцинкованный** | оцинковать | оцинковывать | **оцинкованный** |
-| `роботов-пылесосов` | **робот-пылесос** | **робот-пылесос** | **робот-пылесос** | роботов-пылесосов | **робот-пылесос** | **робот-пылесос** | роботов-пылесосов |
-| `цветов` (омоним без контекста) | цвет | цвет | цвет | цвет | цвет | цветок | цветок |
+```mermaid
+flowchart LR
+    A["Сырой запрос / текст"] --> B["NormalizeHomoglyphs + Tokenize / Technical"]
+    B --> C{"overrides.tsv<br/>(469 правил)"}
+    C -- "найдено" --> G["Выход:<br/>Word / LemmaKey / SemanticKey<br/>Analyze / Inflect / SEOName"]
+    C -- "нет" --> D["Byte Arena (0 GC pointers)<br/>compactStrMap · 214 196 форм<br/>hash/maphash (AES-NI)"]
+    D -- "dict hit" --> E["adj_noun (3 960)<br/>morph (127k) · paradigms (44.8k)<br/>лениво + atomic.Pointer"]
+    D -- "OOV" --> F["fallbackSuffix + morph_infer<br/>(словарно-проверяемый вывод)"]
+    F --> E
+    E --> G
+    G --> H1["Go stdlib<br/>59 мс · 15.6 МБ"]
+    G --> H2["Python CGO<br/>682k запр/с · 37.1 МБ"]
+    G --> H3["CLI & WASM<br/>1.09 МБ gzip · 46 МБ"]
+```
+
+---
 
 ## Когда лучше взять Natasha, MyStem, pymorphy3 или simplemma
 
-`rulemma` не пытается заменить все NLP-инструменты сразу. Это бесконтекстный словарный движок под короткие поисковые запросы, товарные каталоги, SEO-кластеризацию и пакетные задачи на миллионы строк.
+`rulemma` — бесконтекстный словарный движок под короткие поисковые запросы, товарные каталоги, SEO-кластеризацию и пакетные задачи на миллионы строк.
 
-- Берите **[Natasha](https://github.com/natasha/natasha)** или **[Яндекс MyStem](https://yandex.ru/dev/mystem/)**, если разбираете связные предложения, новости и отзывы, где форма зависит от синтаксиса («они **стали** работать» vs «термос из нержавеющей **стали**»). Также у Natasha есть готовый NER и синтаксический разбор.
-- Берите **[pymorphy3](https://github.com/no-plagiarism/pymorphy3)**, если нужны вероятностные предсказатели для редких несловарных OOV-глаголов или полный набор редких граммем OpenCorpora (вид, залог, наклонение, лицо). Для существительных, прилагательных, причастий, предложного управления и омонимов `rulemma 0.3` уже имеет встроенные `analyze`, `prep_governs`, `inflect` и `inflect_phrase`.
-- Берите **[simplemma](https://github.com/adbar/simplemma)**, если проект мультиязычный (40+ языков) и нужен чистый Python без компилятора Go.
-- Берите **`rulemma`**, если работаете с русскоязычными поисковыми запросами, каталогами и тегами, хотите убрать типовые ошибки OpenCorpora на брендах, единицах измерения, причастиях и омонимах, сохранить технические характеристики (`2,6 л.с.`, `100×100 см`, `б/у`, `m.2`), склеивать пары `прилагательное <-> существительное`, уложиться в ~37 МБ базового RSS (~16 МБ прироста в Python / ~12 МБ в Go) под MIT-лицензией и обрабатывать сотни тысяч и миллионы запросов в секунду.
+- Берите [Natasha](https://github.com/natasha/natasha) или [Яндекс MyStem](https://yandex.ru/dev/mystem/), если разбираете связные предложения, новости и отзывы, где форма зависит от синтаксиса («они стали работать» vs «термос из нержавеющей стали»), либо нужны NER и синтаксический разбор.
+- Берите [pymorphy3](https://github.com/no-plagiarism/pymorphy3), если нужны вероятностные предсказатели редких несловарных OOV-глаголов или полный набор редких граммем OpenCorpora (вид, залог, наклонение, лицо). Для существительных, прилагательных, причастий, предложного управления и омонимов в `rulemma` уже встроены `analyze`, `prep_governs`, `inflect` и `inflect_phrase`.
+- Берите [simplemma](https://github.com/adbar/simplemma), если проект мультиязычный (40+ языков) и нужен чистый Python без компилятора Go.
+- Берите **rulemma**, если обрабатываете русскоязычные поисковые запросы, каталоги и теги, хотите убрать ошибки OpenCorpora на брендах, единицах измерения и причастиях, беречь технические характеристики, склеивать пары прилагательное ↔ существительное и укладываться в ~37 МБ RSS при сотнях тысяч запросов в секунду под MIT-лицензией.
 
-## Как устроены словари и как их настроить под свой домен
+---
 
-Все данные хранятся в папке `data/` в сжатых TSV-файлах общим весом около `2.6 МБ`, с манифестом версий и контрольных сумм SHA-256 [`data/manifest.json`](data/manifest.json):
+<a id="словари-и-настройка-под-свой-домен"></a>
 
-- `data/lemmas.tsv.gz`: `214 196` очищенных русских и товарных словоформ (`tools/build_dicts.py`: нормализация `3 755` причастий, ударных `-ой` прилагательных, защита 2–3-буквенных слов, дефисных городов РФ, чистка OOV-обрубков и нарицательных существительных).
-- `data/adj_forms.tsv.gz`: `74 098` словоформ прилагательных и причастий для согласования по роду и числу.
-- `data/types.tsv.gz`: `4 669` записей рода и числа для товарных типов (с поддержкой мн.ч. и составных названий в `TypeGram`).
-- `data/adj_noun.tsv.gz`: `3 960` проверенных относительных пар `прилагательное -> существительное` (`tools/build_adj_noun.py`) с защитой от смыслового дрейфа.
-- `data/morph.tsv.gz`: `127 163` известных словоформ с компактной 32-битной маской грамматических признаков (POS, род, число, падежи, одушевлённость, `Pltm`/`Sgtm`/`Fixd`; загружается лениво).
-- `data/alt_lemmas.tsv.gz`: `11 909` реально омонимичных словоформ со всеми словарными разборами `(lemma, POS, cases)` (загружается лениво).
-- `data/paradigms.tsv.gz`: `44 819` записей (`347` дедуплицированных суффиксных парадигм для `44 472` существительных, прилагательных и причастий; загружается лениво).
-- `data/overrides.tsv`: `470` базовых ручных правок с наивысшим приоритетом.
-- `data/manifest.json`: схема `schema_version: 1`, версия словаря, счётчики записей и SHA-256 хеши всех файлов.
+## Словари и настройка под свой домен
+
+Все данные лежат в папке `data/` в сжатых TSV-файлах общим весом 2.6 МБ с манифестом версий и контрольных сумм SHA-256 [data/manifest.json](data/manifest.json).
+
+<details open>
+<summary>Состав 8 таблиц словаря (dict_version: 2026.11.5, schema_version: 1)</summary>
+
+<br />
+
+- `data/lemmas.tsv.gz` — 214 196 очищенных русских и товарных словоформ (нормализация 3 755 причастий, ударных `-ой` прилагательных, защита 2–3-буквенных слов и дефисных городов РФ).
+- `data/adj_forms.tsv.gz` — 74 098 словоформ прилагательных и причастий для согласования по роду и числу (индекс по 18 776 основам в 4-слотовой арене).
+- `data/types.tsv.gz` — 4 669 записей рода и числа для товарных типов (с поддержкой мн. ч. и составных названий в `TypeGram`).
+- `data/adj_noun.tsv.gz` — 3 960 проверенных относительных пар прилагательное → существительное (`tools/build_adj_noun.py`) с защитой от смыслового дрейфа.
+- `data/morph.tsv.gz` — 127 163 словоформ с 32-битной маской грамматических признаков (POS, род, число, падежи, одушевлённость, `Pltm`/`Sgtm`/`Fixd`; загружается лениво).
+- `data/alt_lemmas.tsv.gz` — 11 909 омонимичных словоформ со всеми словарными разборами (загружается лениво).
+- `data/paradigms.tsv.gz` — 44 819 записей (347 суффиксных парадигм для 44 472 существительных, прилагательных и причастий; загружается лениво).
+- `data/overrides.tsv` — 469 базовых ручных правок с наивысшим приоритетом.
+- `data/manifest.json` — схема `schema_version: 1`, версия словаря, счётчики записей и SHA-256 хеши всех файлов.
+
+</details>
 
 Свой файл переопределений подключается без пересборки словарей через `--overrides custom.tsv` в CLI, `RuLemma(overrides="custom.tsv")` в Python или `Options{ExtraOverridesPath: "custom.tsv"}` в Go (см. [examples/10_ecommerce_overrides/](examples/10_ecommerce_overrides/)):
 
@@ -244,56 +392,67 @@ printf "зимние ботинки б/у\nкофе без сахара с мо�
 квадрокоптеры	дрон
 ```
 
+---
+
 ## Примеры использования (`examples/01..13`)
 
-В папке [`examples/`](examples/README.md) собраны 13 готовых проверяемых примеров (Python, Go и CLI), которые прогоняются в CI на каждый коммит: базовая лемматизация, сравнение со стеммингом, пакетная обработка 100 000 строк и TSV, миграция с `pymorphy3`, Go-горутины с `embedded.Load()`, препроцессинг, кастомные стоп-слова, частотный анализ и N-граммы, дедупликация запросов, кастомные `overrides.tsv`, сборка SEO-названий, подготовка корпуса под TF-IDF и новые возможности `v0.3` (технический профиль, морфоанализ и склонение).
+В папке [examples/](examples/README.md) собраны 13 проверяемых примеров (Python, Go и CLI), которые прогоняются в CI на каждый коммит: базовая лемматизация, сравнение со стеммингом, пакетная обработка 100 000 строк и TSV, миграция с pymorphy3, Go-горутины с `embedded.Load()`, препроцессинг, кастомные стоп-слова, частотный анализ, дедупликация запросов, кастомные `overrides.tsv`, сборка SEO-названий, TF-IDF и возможности v0.3–v0.4.
 
-## Структура репозитория
+<details>
+<summary>Структура репозитория</summary>
 
 ```text
 rulemma/
-├── version.go               # Version (0.4.0), ABIVersion (1), DictSchemaVersion (1)
-├── arena.go                 # Компактные байтовые арены без GC-указателей (compactStrMap, compactU32Map, adjFormsTable) + hash/maphash
-├── memfs.go                 # Потокобезопасная in-memory fs.FS (MemoryFS) для LoadMemory и динамической LoadTable (WASM / S3)
-├── dict.go                  # Потоковый zero-alloc загрузчик .tsv.gz (os + io/fs), overrides.tsv, adj_noun и manifest.json
-├── lemmatizer.go            # NormalizePhrase, Word, LookupWord, Lemmatize*, LemmaKey*, SemanticKey*, AdjToNoun, AgreeAdjective, BuildSEOName, LoadMemory, LoadTable
-├── technical.go             # NormalizeHomoglyphs, TokenizeTechnical, KeyWithOptions, LemmatizeAllWithOptions (техпрофиль, связки предлогов, keep_words, compact_codes)
-├── morph.go                 # Ленивый компактный морфоанализ: Analyze, WordCandidates, PrepGoverns
-├── morph_infer.go           # Вывод морфологии для OOV-словоформ через paradigms.tsv.gz и составные основы (WordInfo.Inferred)
-├── inflect.go               # Ленивое склонение и согласование: Inflect, InflectAdj, InflectPhrase, AllForms, AgreeNumber, Preposition
-├── *_test.go                # Модульные, регрессионные, золотые (tests/golden/), race-тесты и Go-бенчмарк
-├── embedded/                # Опциональный пакет //go:embed (2.6 МБ полностью или 1.2 МБ с -tags rulemma_core)
-├── capi/capi.go             # Append-only C-shared библиотека (librulemma.so / .dylib, ABI v1)
-├── cmd/rulemma/             # Параллельный CLI (version, info, lemmatize, tsv, bench, seoname, analyze, inflect) и CLI-тесты
-├── cmd/rulemma-wasm/        # Референсный WebAssembly-модуль (тонкий 1.09 МБ gzip + core 2.29 МБ + full 3.63 МБ)
-├── python/rulemma/          # Python-пакет без зависимостей (ctypes + fork-safety + CLI-бэкенд)
-├── data/                    # Компактные словари (.tsv.gz), overrides.tsv, manifest.json, embed.go и embed_core.go
-├── examples/                # 13 проверяемых примеров на Python, Go и Bash/CLI
-├── tools/                   # Скрипты словарей и релизных проверок (build_dicts.py, build_adj_noun.py, update_manifest.py, release_check.py)
-├── benchmarks/              # Открытые золотые наборы (.tsv) и воспроизводимое сравнение 8 библиотек
-├── tests/                   # Тесты Python-биндингов, примеров и золотые регрессионные наборы (tests/golden/)
-└── CHANGELOG.md             # История изменений (SemVer 2.0)
+├── version.go         # Version (0.4.0), ABIVersion (1), DictSchemaVersion (1)
+├── arena.go           # Байтовые арены без GC-указателей + hash/maphash
+├── memfs.go           # Потокобезопасная in-memory fs.FS (LoadMemory / LoadTable)
+├── dict.go            # Потоковый zero-alloc загрузчик .tsv.gz и manifest.json
+├── lemmatizer.go      # NormalizePhrase, Word, LookupWord, LemmaKey, SemanticKey, SEOName
+├── technical.go       # NormalizeHomoglyphs, TokenizeTechnical, KeyWithOptions
+├── morph.go           # Ленивый морфоанализ: Analyze, WordCandidates, PrepGoverns
+├── morph_infer.go     # Вывод морфологии для OOV-словоформ через paradigms.tsv.gz
+├── inflect.go         # Склонение: Inflect, InflectPhrase, AgreeNumber, Preposition
+├── embedded/          # //go:embed (2.6 МБ или 1.2 МБ с -tags rulemma_core)
+├── capi/capi.go       # Append-only C-shared библиотека (ABI v1)
+├── cmd/rulemma/       # Параллельный CLI (version, info, lemmatize, tsv, analyze)
+├── cmd/rulemma-wasm/  # WebAssembly-модуль (thin 1.09 МБ / core 2.29 МБ / full 3.63 МБ)
+├── python/rulemma/    # Python-пакет без зависимостей (ctypes + fork-safety)
+├── data/              # Компактные словари (.tsv.gz), overrides.tsv, manifest.json
+├── assets/            # Акварельная обложка и Light/Dark SVG-графики README
+├── examples/          # 13 проверяемых примеров на Python, Go и CLI
+├── tools/             # Сборка словарей, manifest и release_check.py
+├── benchmarks/        # Золотые наборы (.tsv), сравнение 8 библиотек, render_charts.py
+└── tests/             # Python-тесты, тесты примеров и tests/golden/
 ```
 
-## Воспроизведение тестов, WASM и бенчмарков
+</details>
+
+<details>
+<summary>Воспроизведение тестов, WASM, бенчмарков и графиков</summary>
 
 ```bash
-# Сборка CLI и разделяемой библиотеки, проверка manifest.json, Go (-race), Python и всех examples/01..13
+# Сборка CLI и разделяемой библиотеки, проверка манифеста, Go (-race), Python и examples
 make build
 make release-check
 make test
 
-# Сборка 3 профилей WebAssembly (thin 1.09 МБ / core 2.29 МБ / full 3.63 МБ gzip-9) в bin/wasm/
+# Сборка 3 профилей WebAssembly (thin / core / full) в bin/wasm/
 make build-wasm
 
-# Воспроизведение сравнения 8 библиотек + масштабирования до 1M в отдельном venv
+# Сравнение 8 библиотек + масштабирование до 1M + перегенерация SVG-ассетов README
 python3 -m venv .venv-bench
-.venv-bench/bin/pip install "setuptools<81" pymorphy3 mawo-pymorphy3 steosmorphy natasha pymystem3 simplemma snowballstemmer
+.venv-bench/bin/pip install "setuptools<81" pymorphy3 mawo-pymorphy3 steosmorphy \
+  natasha pymystem3 simplemma snowballstemmer
 .venv-bench/bin/python benchmarks/compare_models.py --scale
+make charts
 ```
+
+</details>
+
+---
 
 ## Авторы и лицензия
 
 Авторы: **Коршиков Дмитрий и Gemini**. Официальный сайт проекта: [rulemma.ru](https://rulemma.ru/).
 
-Код распространяется под лицензией **MIT**, подробности в файле [LICENSE](LICENSE). Словарная основа построена на открытых русских морфологических парадигмах [OpenCorpora](https://opencorpora.org/), очищенных автоматическими лингвистическими правилами (`tools/build_dicts.py`) и ручными переопределениями.
+Код распространяется под лицензией MIT, подробности в файле [LICENSE](LICENSE). Словарная основа построена на открытых русских морфологических парадигмах [OpenCorpora](https://opencorpora.org/), очищенных автоматическими лингвистическими правилами (`tools/build_dicts.py`) и ручными переопределениями.

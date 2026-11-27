@@ -20,7 +20,7 @@
     "morph": 127163,
     "alt_lemmas": 11909,
     "paradigms": 44819,
-    "overrides": 470
+    "overrides": 469
   },
   "sha256": {
     "lemmas.tsv.gz": "ff5c0ffe5b5b5f4ded5819652ffcd5ec7b1609c97898451b4a889ae9b4810a3e",
@@ -30,6 +30,6 @@
     "morph.tsv.gz": "80c15d887386ce0b4b71d2a5d7cf405646ecadca7cfa93611d6df556a88cdefa",
     "alt_lemmas.tsv.gz": "d87fe2304dcc3f462df8fcbe816b48292a19209c4d0b39f20869e7d48a2ce9a7",
     "paradigms.tsv.gz": "e49e085072e7b5c441c9326e8dd112dadc3e292af91bd812855683b29c76a971",
-    "overrides.tsv": "c43e0f35266b4b5cfdfb9864eeaa63c492d4013a9af267a834a8e4398fc6af7d"
+    "overrides.tsv": "9b3ea3f64b28a7738483da68c16f01ef6b96ca47508a416a4d5256a53c8533e7"
   }
 }

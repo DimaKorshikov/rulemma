@@ -1,4 +1,4 @@
-.PHONY: all build build-cli build-lib build-wasm test test-go test-py test-examples check-manifest release-check clean
+.PHONY: all build build-cli build-lib build-wasm charts test test-go test-py test-examples check-manifest release-check clean
 
 GO ?= $(shell which go 2>/dev/null || echo $(HOME)/.local/bin/go)
 UNAME_S := $(shell uname -s)
@@ -31,6 +31,9 @@ build-wasm:
 		gz=$$(gzip -c -9 "$$f" | wc -c); \
 		printf "  %-30s raw=%5.2f MB  gzip-9=%5.2f MB\n" "$$f" "$$(awk "BEGIN{print $$raw/1048576}")" "$$(awk "BEGIN{print $$gz/1048576}")"; \
 	done
+
+charts:
+	python3 benchmarks/render_charts.py
 
 check-manifest:
 	python3 tools/update_manifest.py --check

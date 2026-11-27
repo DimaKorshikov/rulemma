@@ -160,7 +160,7 @@ func normalizeTokenHomoglyphs(tok string) string {
 
 // NormalizeHomoglyphs repairs mixed Cyrillic+Latin homoglyph characters inside individual tokens
 // while preserving whitespace, punctuation, and pure-script tokens untouched.
-// Examples: "cм" -> "см", "рrо" -> "pro", "intеl" -> "intel", "аsus" -> "asus", "оzon" -> "ozon".
+// Examples: "cм" -> "см", "рrо" -> "pro", "intеl" -> "intel", "аsus" -> "asus", "sоny" -> "sony".
 func NormalizeHomoglyphs(text string) string {
 	if text == "" {
 		return ""

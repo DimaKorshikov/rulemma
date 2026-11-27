@@ -282,7 +282,7 @@ class TestRuLemmaPython(unittest.TestCase):
             ("рrо", "pro"),
             ("intеl", "intel"),
             ("аsus", "asus"),
-            ("оzon", "ozon"),
+            ("sоny", "sony"),
             ("ryzеn", "ryzen"),
         ]:
             self.assertEqual(normalize_homoglyphs(raw), want)

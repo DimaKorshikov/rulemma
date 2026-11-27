@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 470" width="960" height="470" role="img" aria-label="Динамика версий rulemma от v0.2.0 до v0.4.0">
+<title>Динамика версий rulemma v0.2.0 — v0.4.0: память, холодный старт, охват словарей и WASM</title>
+<rect width="960" height="470" rx="14" fill="#14171A" stroke="#2F353B" stroke-width="1"/>
+<text x="28" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#E7E3DA">Динамика версий rulemma: от v0.2.0 к v0.4.0</text>
+<text x="28" y="59" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" fill="#969B97">Словари и функции выросли почти вдвое, а байтовая арена в v0.4.0 сократила RAM на 40.5% и ускорила старт в 2–3.2×</text>
+<rect x="708" y="20" width="224" height="32" rx="16" fill="#332119" stroke="#DF7E58" stroke-opacity="0.35"/>
+<text x="820" y="40" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#DF7E58">v0.4.0: 37.1 МБ RAM &lt; pymorphy3</text>
+<rect x="24" y="78" width="452" height="266" rx="12" fill="#1B1F23" stroke="#2F353B"/>
+<text x="42" y="104" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#E7E3DA">Память (RSS) и холодный старт</text>
+<circle cx="48" cy="124" r="4.5" fill="#DF7E58"/>
+<text x="58" y="128" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#969B97">База RSS (МБ)</text>
+<circle cx="158" cy="124" r="4.5" fill="#74A3C2"/>
+<text x="168" y="128" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#969B97">Пик 20k RSS (МБ)</text>
+<rect x="284" y="120" width="12" height="8" rx="2" fill="#77B390" fill-opacity="0.32" stroke="#77B390" stroke-width="1.2"/>
+<text x="302" y="128" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#969B97">Старт (мс)</text>
+<line x1="70" y1="302.0" x2="436" y2="302.0" stroke="#24292E" stroke-width="1"/>
+<text x="62" y="305.5" text-anchor="end" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" fill="#969B97">0</text>
+<text x="444" y="305.5" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" fill="#77B390">0</text>
+<line x1="70" y1="264.0" x2="436" y2="264.0" stroke="#24292E" stroke-width="1"/>
+<text x="62" y="267.5" text-anchor="end" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" fill="#969B97">30</text>
+<text x="444" y="267.5" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" fill="#77B390">60</text>
+<line x1="70" y1="226.0" x2="436" y2="226.0" stroke="#24292E" stroke-width="1"/>
+<text x="62" y="229.5" text-anchor="end" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" fill="#969B97">60</text>
+<text x="444" y="229.5" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" fill="#77B390">120</text>
+<line x1="70" y1="188.0" x2="436" y2="188.0" stroke="#24292E" stroke-width="1"/>
+<text x="62" y="191.5" text-anchor="end" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" fill="#969B97">90</text>
+<text x="444" y="191.5" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" fill="#77B390">180</text>
+<line x1="70" y1="150.0" x2="436" y2="150.0" stroke="#24292E" stroke-width="1"/>
+<text x="62" y="153.5" text-anchor="end" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" fill="#969B97">120</text>
+<text x="444" y="153.5" text-anchor="start" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" fill="#77B390">240</text>
+<text x="62" y="142" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#969B97">МБ</text>
+<text x="444" y="142" text-anchor="start" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#77B390">мс</text>
+<line x1="70" y1="245.0" x2="436" y2="245.0" stroke="#8E9490" stroke-width="1.2" stroke-dasharray="4,4"/>
+<rect x="114.3" y="229.5" width="112" height="14" rx="3" fill="#1B1F23" fill-opacity="0.92"/>
+<text x="170.3" y="240.0" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="600" fill="#8E9490">pymorphy3: 45.0 МБ</text>
+<rect x="91.0" y="193.1" width="22" height="108.9" rx="4" fill="#77B390" fill-opacity="0.20"/>
+<text x="102.0" y="319" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#E7E3DA">v0.2.2</text>
+<text x="102.0" y="333" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#77B390">172 мс</text>
+<rect x="191.7" y="176.6" width="22" height="125.4" rx="4" fill="#77B390" fill-opacity="0.20"/>
+<text x="202.7" y="319" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#E7E3DA">v0.3.0</text>
+<text x="202.7" y="333" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#77B390">198 мс</text>
+<rect x="292.3" y="184.8" width="22" height="117.2" rx="4" fill="#77B390" fill-opacity="0.20"/>
+<text x="303.3" y="319" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#E7E3DA">v0.3.1</text>
+<text x="303.3" y="333" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#77B390">185 мс</text>
+<rect x="393.0" y="243.1" width="22" height="58.9" rx="4" fill="#77B390" fill-opacity="0.20"/>
+<text x="404.0" y="319" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="11" font-weight="700" fill="#DF7E58">v0.4.0</text>
+<text x="404.0" y="333" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#77B390">93 мс</text>
+<polyline fill="none" stroke="#74A3C2" stroke-width="2.4" points="102.0,170.1 202.7,167.6 303.3,168.7 404.0,219.3"/>
+<polyline fill="none" stroke="#DF7E58" stroke-width="2.8" points="102.0,224.9 202.7,223.3 303.3,223.0 404.0,255.0"/>
+<circle cx="102.0" cy="170.1" r="4.5" fill="#1B1F23" stroke="#74A3C2" stroke-width="2.4"/>
+<text x="102.0" y="161.1" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#74A3C2">104.1</text>
+<circle cx="102.0" cy="224.9" r="5" fill="#DF7E58" stroke="#1B1F23" stroke-width="2"/>
+<rect x="85.0" y="204.4" width="34" height="13" rx="3" fill="#1B1F23" fill-opacity="0.88"/>
+<text x="102.0" y="214.9" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#DF7E58">60.9</text>
+<circle cx="202.7" cy="167.6" r="4.5" fill="#1B1F23" stroke="#74A3C2" stroke-width="2.4"/>
+<text x="202.7" y="158.6" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#74A3C2">106.1</text>
+<circle cx="202.7" cy="223.3" r="5" fill="#DF7E58" stroke="#1B1F23" stroke-width="2"/>
+<rect x="185.7" y="202.8" width="34" height="13" rx="3" fill="#1B1F23" fill-opacity="0.88"/>
+<text x="202.7" y="213.3" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#DF7E58">62.1</text>
+<circle cx="303.3" cy="168.7" r="4.5" fill="#1B1F23" stroke="#74A3C2" stroke-width="2.4"/>
+<text x="303.3" y="159.7" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#74A3C2">105.2</text>
+<circle cx="303.3" cy="223.0" r="5" fill="#DF7E58" stroke="#1B1F23" stroke-width="2"/>
+<rect x="286.3" y="202.5" width="34" height="13" rx="3" fill="#1B1F23" fill-opacity="0.88"/>
+<text x="303.3" y="213.0" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#DF7E58">62.4</text>
+<circle cx="404.0" cy="219.3" r="4.5" fill="#1B1F23" stroke="#74A3C2" stroke-width="2.4"/>
+<text x="404.0" y="210.3" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#74A3C2">65.3</text>
+<circle cx="404.0" cy="255.0" r="5" fill="#DF7E58" stroke="#1B1F23" stroke-width="2"/>
+<rect x="387.0" y="262.5" width="34" height="13" rx="3" fill="#1B1F23" fill-opacity="0.88"/>
+<text x="404.0" y="273.0" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#DF7E58">37.1</text>
+<rect x="492" y="78" width="444" height="266" rx="12" fill="#1B1F23" stroke="#2F353B"/>
+<text x="510" y="104" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#E7E3DA">Охват словарей и точность (тыс. записей)</text>
+<rect x="510" y="118" width="10" height="10" rx="2" fill="#DF7E58"/>
+<text x="525" y="127" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#969B97">Леммы + формы</text>
+<rect x="630" y="118" width="10" height="10" rx="2" fill="#74A3C2"/>
+<text x="645" y="127" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#969B97">Морфология + парадигмы</text>
+<circle cx="812" cy="123" r="4" fill="#77B390"/>
+<text x="821" y="127" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#969B97">Точность RU</text>
+<line x1="534" y1="302.0" x2="914" y2="302.0" stroke="#24292E" stroke-width="1"/>
+<text x="526" y="305.5" text-anchor="end" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" fill="#969B97">0k</text>
+<line x1="534" y1="260.5" x2="914" y2="260.5" stroke="#24292E" stroke-width="1"/>
+<text x="526" y="264.0" text-anchor="end" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" fill="#969B97">150k</text>
+<line x1="534" y1="219.1" x2="914" y2="219.1" stroke="#24292E" stroke-width="1"/>
+<text x="526" y="222.6" text-anchor="end" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" fill="#969B97">300k</text>
+<line x1="534" y1="177.6" x2="914" y2="177.6" stroke="#24292E" stroke-width="1"/>
+<text x="526" y="181.1" text-anchor="end" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" fill="#969B97">450k</text>
+<rect x="549.0" y="233.0" width="38" height="69.0" rx="3" fill="#DF7E58" fill-opacity="0.88"/>
+<text x="568.0" y="214.0" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" font-weight="700" fill="#E7E3DA">250k</text>
+<text x="568.0" y="227.0" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" font-weight="600" fill="#77B390">96.2%</text>
+<text x="568.0" y="319" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10.5" font-weight="600" fill="#E7E3DA">v0.2.0</text>
+<text x="568.0" y="333" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#969B97">старт</text>
+<rect x="627.0" y="222.4" width="38" height="79.6" rx="3" fill="#DF7E58" fill-opacity="0.88"/>
+<text x="646.0" y="203.4" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" font-weight="700" fill="#E7E3DA">288k</text>
+<text x="646.0" y="216.4" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" font-weight="600" fill="#77B390">99.2%</text>
+<text x="646.0" y="319" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10.5" font-weight="600" fill="#E7E3DA">v0.2.2</text>
+<text x="646.0" y="333" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#969B97">PRTF</text>
+<rect x="705.0" y="222.4" width="38" height="79.6" rx="3" fill="#DF7E58" fill-opacity="0.88"/>
+<rect x="705.0" y="174.5" width="38" height="47.8" rx="3" fill="#74A3C2" fill-opacity="0.88"/>
+<text x="724.0" y="155.5" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" font-weight="700" fill="#E7E3DA">461k</text>
+<text x="724.0" y="168.5" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" font-weight="600" fill="#77B390">99.2%</text>
+<text x="724.0" y="319" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10.5" font-weight="600" fill="#E7E3DA">v0.3.0</text>
+<text x="724.0" y="333" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#969B97">morph+inf</text>
+<rect x="783.0" y="219.8" width="38" height="82.2" rx="3" fill="#DF7E58" fill-opacity="0.88"/>
+<rect x="783.0" y="169.0" width="38" height="50.8" rx="3" fill="#74A3C2" fill-opacity="0.88"/>
+<text x="802.0" y="150.0" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" font-weight="700" fill="#E7E3DA">481k</text>
+<text x="802.0" y="163.0" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" font-weight="600" fill="#77B390">99.2%</text>
+<text x="802.0" y="319" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10.5" font-weight="600" fill="#E7E3DA">v0.3.1</text>
+<text x="802.0" y="333" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#969B97">OOV-вывод</text>
+<rect x="861.0" y="219.8" width="38" height="82.2" rx="3" fill="#DF7E58" fill-opacity="0.88"/>
+<rect x="861.0" y="169.0" width="38" height="50.8" rx="3" fill="#74A3C2" fill-opacity="0.88"/>
+<text x="880.0" y="150.0" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" font-weight="700" fill="#E7E3DA">481k</text>
+<text x="880.0" y="163.0" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" font-weight="600" fill="#77B390">99.2%</text>
+<text x="880.0" y="319" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#DF7E58">v0.4.0</text>
+<text x="880.0" y="333" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#969B97">арена</text>
+<rect x="24" y="358" width="912" height="92" rx="12" fill="#1B1F23" stroke="#2F353B"/>
+<text x="42" y="382" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#E7E3DA">Прорыв v0.4.0 (байтовая арена без GC-указателей + тонкий WASM)</text>
+<rect x="38" y="393" width="212" height="46" rx="8" fill="#24292E"/>
+<text x="50" y="408" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="600" fill="#969B97">Go Load(&quot;data&quot;)</text>
+<text x="50" y="423" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="12.5" font-weight="700" fill="#DF7E58">187 мс → 59 мс</text>
+<text x="50" y="435" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#969B97">3.2× быстрее · 11.3 МБ Heap</text>
+<rect x="262" y="393" width="212" height="46" rx="8" fill="#24292E"/>
+<text x="274" y="408" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="600" fill="#969B97">Heap-объекты Go</text>
+<text x="274" y="423" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="12.5" font-weight="700" fill="#74A3C2">297k → 5.5k</text>
+<text x="274" y="435" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#969B97">54× меньше нагрузки на GC</text>
+<rect x="486" y="393" width="212" height="46" rx="8" fill="#24292E"/>
+<text x="498" y="408" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="600" fill="#969B97">Python (все 8 таблиц)</text>
+<text x="498" y="423" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="12.5" font-weight="700" fill="#77B390">93.5 → 42.3 МБ</text>
+<text x="498" y="435" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#969B97">-51.2 МБ RAM · база 30.8 МБ</text>
+<rect x="710" y="393" width="212" height="46" rx="8" fill="#24292E"/>
+<text x="722" y="408" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="600" fill="#969B97">WASM (браузер)</text>
+<text x="722" y="423" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="12.5" font-weight="700" fill="#DF7E58">156.8 → 46.1 МБ</text>
+<text x="722" y="435" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#969B97">3.4× меньше · 1.09 МБ gzip</text>
+</svg>

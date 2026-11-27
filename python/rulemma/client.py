@@ -86,7 +86,7 @@ def normalize_homoglyphs(text: str) -> str:
     """Repair mixed Cyrillic+Latin lookalike characters inside individual tokens.
 
     Pure Cyrillic and pure Latin tokens remain untouched.
-    Examples: 'cм' -> 'см', 'рrо' -> 'pro', 'intеl' -> 'intel', 'аsus' -> 'asus', 'оzon' -> 'ozon'.
+    Examples: 'cм' -> 'см', 'рrо' -> 'pro', 'intеl' -> 'intel', 'аsus' -> 'asus', 'sоny' -> 'sony'.
     """
     if not text:
         return ""

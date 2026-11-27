@@ -22,7 +22,7 @@ func TestNormalizeHomoglyphs(t *testing.T) {
 		{"рrо", "pro"},
 		{"intеl", "intel"},
 		{"аsus", "asus"},
-		{"оzon", "ozon"},
+		{"sоny", "sony"},
 		{"ryzеn", "ryzen"},
 		{"молоко 100%", "молоко 100%"},
 		{"Samsung Galaxy S24", "Samsung Galaxy S24"},
