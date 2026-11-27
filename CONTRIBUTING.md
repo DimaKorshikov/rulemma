@@ -10,9 +10,10 @@
    python3 tools/update_manifest.py
    ```
 3. Добавьте проверку в `tests/golden/golden_lemmas.tsv` (и при изменении спорного омонима — запись в `CHANGELOG.md`).
-4. Прогоните все проверки (манифест, Go `-race`, Python и примеры):
+4. Прогоните все проверки (версии, манифест, синхронность README/CHANGELOG, Go `-race`, Python и примеры):
    ```bash
    make build
+   make release-check
    make test
    ```
 

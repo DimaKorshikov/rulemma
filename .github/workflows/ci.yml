@@ -22,8 +22,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Verify dictionary manifest checksums
-        run: python3 tools/update_manifest.py --check
+      - name: Verify manifest, versions, docs & repo hygiene
+        run: python3 tools/release_check.py
 
       - name: Build CLI & C-shared library
         run: make build

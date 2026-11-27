@@ -1,4 +1,4 @@
-.PHONY: all build build-cli build-lib test test-go test-py test-examples check-manifest clean
+.PHONY: all build build-cli build-lib test test-go test-py test-examples check-manifest release-check clean
 
 GO ?= $(shell which go 2>/dev/null || echo $(HOME)/.local/bin/go)
 UNAME_S := $(shell uname -s)
@@ -23,6 +23,9 @@ build-lib:
 
 check-manifest:
 	python3 tools/update_manifest.py --check
+
+release-check:
+	python3 tools/release_check.py
 
 test: check-manifest test-go test-py
 
