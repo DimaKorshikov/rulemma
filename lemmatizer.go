@@ -11,14 +11,33 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"unicode"
 	"unicode/utf8"
 )
 
-// DefaultKeyStopWords are service & commercial words excluded from LemmaKey.
+// DefaultKeyStopWords are service & commercial words excluded from LemmaKey and SemanticKey.
+// Negation markers ("без", "не", "нет") are intentionally NOT excluded so opposite queries
+// (e.g. "шоколад без сахара" vs "шоколад с сахаром") never collide.
 var DefaultKeyStopWords = map[string]struct{}{
 	"в": {}, "во": {}, "на": {}, "для": {}, "и": {}, "с": {}, "со": {}, "по": {},
-	"из": {}, "от": {}, "до": {}, "без": {}, "под": {}, "к": {}, "у": {}, "о": {},
+	"из": {}, "от": {}, "до": {}, "под": {}, "к": {}, "у": {}, "о": {},
+	"об": {}, "а": {}, "или": {}, "купить": {}, "цена": {}, "цены": {},
+	"недорого": {}, "дешево": {}, "интернет": {}, "магазин": {},
+}
+
+// GeneralKeyStopWords contains only neutral Russian prepositions and conjunctions
+// (no commercial terms like "купить"/"магазин" and no negations like "без"/"не").
+var GeneralKeyStopWords = map[string]struct{}{
+	"в": {}, "во": {}, "на": {}, "для": {}, "и": {}, "с": {}, "со": {}, "по": {},
+	"из": {}, "от": {}, "до": {}, "под": {}, "к": {}, "у": {}, "о": {},
+	"об": {}, "а": {}, "или": {},
+}
+
+// EcommerceKeyStopWords is an explicit alias for the e-commerce stop-word profile (same as DefaultKeyStopWords).
+var EcommerceKeyStopWords = map[string]struct{}{
+	"в": {}, "во": {}, "на": {}, "для": {}, "и": {}, "с": {}, "со": {}, "по": {},
+	"из": {}, "от": {}, "до": {}, "под": {}, "к": {}, "у": {}, "о": {},
 	"об": {}, "а": {}, "или": {}, "купить": {}, "цена": {}, "цены": {},
 	"недорого": {}, "дешево": {}, "интернет": {}, "магазин": {},
 }
@@ -29,23 +48,44 @@ var DefaultSEONameStopWords = map[string]struct{}{
 	"из": {}, "к": {}, "о": {}, "от": {}, "до": {},
 }
 
+// WordSource constants returned by LookupWord.
+const (
+	SourceOverride = "override"
+	SourceDict     = "dict"
+	SourceRule     = "rule"
+	SourceOOV      = "oov"
+)
+
 // Lemmatizer holds preloaded immutable dictionaries for fast concurrent Russian morphology.
 type Lemmatizer struct {
+	fsys           fs.FS
 	lemmas         map[string]string
+	overrides      map[string]struct{}
 	types          map[string]GramInfo
 	adjForms       map[string]string
 	adjToNoun      map[string]string
+	morphOnce      sync.Once
+	morph          map[string]uint32
+	altLemmas      map[string]string
+	paradigmOnce   sync.Once
+	paradigms      []paradigmDef
+	paradigmWords  map[string]paradigmRef
+	manifest       *Manifest
 	suffixFallback bool
 	overridesCount int
 }
 
 // Stats describes loaded dictionary sizes.
 type Stats struct {
-	Lemmas    int
-	Types     int
-	AdjForms  int
-	AdjNoun   int
-	Overrides int
+	Lemmas        int
+	Types         int
+	AdjForms      int
+	AdjNoun       int
+	Overrides     int
+	Morph         int
+	AltLemmas     int
+	Paradigms     int
+	ParadigmWords int
 }
 
 // Load initializes a Lemmatizer from dataDir using default options.
@@ -76,16 +116,17 @@ func loadFS(fsys fs.FS, label string, opts Options) (*Lemmatizer, error) {
 	if err != nil {
 		return nil, err
 	}
+	overrides := make(map[string]struct{}, 512)
 	ovCnt := 0
 	if _, err := fs.Stat(fsys, "overrides.tsv"); err == nil {
-		n, err := applyOverridesFS(lemmas, fsys, "overrides.tsv")
+		n, err := applyOverridesFS(lemmas, overrides, fsys, "overrides.tsv")
 		if err != nil {
 			return nil, fmt.Errorf("load overrides.tsv: %w", err)
 		}
 		ovCnt += n
 	}
 	if opts.ExtraOverridesPath != "" {
-		n, err := applyOverrides(lemmas, opts.ExtraOverridesPath)
+		n, err := applyOverrides(lemmas, overrides, opts.ExtraOverridesPath)
 		if err != nil {
 			return nil, fmt.Errorf("load extra overrides %s: %w", opts.ExtraOverridesPath, err)
 		}
@@ -103,24 +144,77 @@ func loadFS(fsys fs.FS, label string, opts Options) (*Lemmatizer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Lemmatizer{
+	manifest, _ := LoadManifestFS(fsys)
+	lem := &Lemmatizer{
+		fsys:           fsys,
 		lemmas:         lemmas,
+		overrides:      overrides,
 		types:          types,
 		adjForms:       adjForms,
 		adjToNoun:      adjToNoun,
+		manifest:       manifest,
 		suffixFallback: !opts.DisableSuffixFallback,
 		overridesCount: ovCnt,
-	}, nil
+	}
+	if opts.PreloadAll {
+		lem.Preload()
+	}
+	return lem, nil
+}
+
+func (l *Lemmatizer) ensureMorph() {
+	l.morphOnce.Do(func() {
+		if l.fsys == nil {
+			return
+		}
+		if m, err := loadMorphFS(l.fsys); err == nil {
+			l.morph = m
+		}
+		if a, err := loadAltLemmasFS(l.fsys); err == nil {
+			l.altLemmas = a
+		}
+	})
+}
+
+func (l *Lemmatizer) ensureParadigms() {
+	l.paradigmOnce.Do(func() {
+		if l.fsys == nil {
+			return
+		}
+		if defs, words, err := loadParadigmsFS(l.fsys); err == nil {
+			l.paradigms = defs
+			l.paradigmWords = words
+		}
+	})
+}
+
+// Preload eagerly loads the optional v0.3 morphology and inflection tables (normally loaded lazily on first use).
+func (l *Lemmatizer) Preload() {
+	l.ensureMorph()
+	l.ensureParadigms()
+}
+
+// Manifest returns the dictionary manifest loaded alongside the dictionaries, or nil if absent.
+func (l *Lemmatizer) Manifest() *Manifest {
+	return l.manifest
 }
 
 // Stats returns dictionary entry counts.
 func (l *Lemmatizer) Stats() Stats {
+	pCnt := 0
+	if len(l.paradigms) > 1 {
+		pCnt = len(l.paradigms) - 1
+	}
 	return Stats{
-		Lemmas:    len(l.lemmas),
-		Types:     len(l.types),
-		AdjForms:  len(l.adjForms),
-		AdjNoun:   len(l.adjToNoun),
-		Overrides: l.overridesCount,
+		Lemmas:        len(l.lemmas),
+		Types:         len(l.types),
+		AdjForms:      len(l.adjForms),
+		AdjNoun:       len(l.adjToNoun),
+		Overrides:     l.overridesCount,
+		Morph:         len(l.morph),
+		AltLemmas:     len(l.altLemmas),
+		Paradigms:     pCnt,
+		ParadigmWords: len(l.paradigmWords),
 	}
 }
 
@@ -156,17 +250,21 @@ func hasCyrillic(s string) bool {
 }
 
 // Tokenize extracts lowercase alphanumeric/hyphen tokens in a single fast pass (no regex).
+// Consecutive hyphens (e.g. "a--b") act as token separators, matching Python's regex tokenizer.
 func Tokenize(text string) []string {
 	var tokens []string
 	var buf strings.Builder
 	buf.Grow(32)
+	prevHyphen := false
 
 	flush := func() {
 		if buf.Len() == 0 {
+			prevHyphen = false
 			return
 		}
 		tok := strings.Trim(buf.String(), "-")
 		buf.Reset()
+		prevHyphen = false
 		if tok != "" {
 			tokens = append(tokens, tok)
 		}
@@ -175,8 +273,10 @@ func Tokenize(text string) []string {
 	for _, r := range text {
 		if isWordRune(r) {
 			buf.WriteRune(unicode.ToLower(r))
-		} else if r == '-' && buf.Len() > 0 {
+			prevHyphen = false
+		} else if r == '-' && buf.Len() > 0 && !prevHyphen {
 			buf.WriteByte('-')
+			prevHyphen = true
 		} else {
 			flush()
 		}
@@ -218,22 +318,32 @@ func MakeStopWords(words []string) map[string]struct{} {
 	return out
 }
 
-// Word returns the normalized lemma (ё -> е) for a single token.
-func (l *Lemmatizer) Word(word string) string {
+// LookupWord returns the normalized lemma (ё -> е) for a single token along with its provenance:
+//   - SourceOverride ("override"): matched an explicit rule in overrides.tsv / ExtraOverridesPath;
+//   - SourceDict ("dict"): matched an entry in the base dictionary;
+//   - SourceRule ("rule"): derived by hyphenated compound splitting or dictionary-verified suffix fallback;
+//   - SourceOOV ("oov"): unseen word or non-Cyrillic token returned unchanged.
+func (l *Lemmatizer) LookupWord(word string) (string, string) {
 	w := strings.Trim(strings.ToLower(word), "-")
 	if w == "" {
-		return ""
+		return "", SourceOOV
 	}
 	if !hasCyrillic(w) {
-		return w
+		return w, SourceOOV
 	}
 	if lm, ok := l.lemmas[w]; ok {
-		return lm
+		if _, isOv := l.overrides[w]; isOv {
+			return lm, SourceOverride
+		}
+		return lm, SourceDict
 	}
 	wn := normYo(w)
 	if wn != w {
 		if lm, ok := l.lemmas[wn]; ok {
-			return lm
+			if _, isOv := l.overrides[wn]; isOv {
+				return lm, SourceOverride
+			}
+			return lm, SourceDict
 		}
 	}
 	// Hyphenated compound word: lemmatize parts independently (e.g. "роботов-пылесосов" -> "робот-пылесос").
@@ -244,55 +354,294 @@ func (l *Lemmatizer) Word(word string) string {
 			if p == "" {
 				continue
 			}
-			lp := l.Word(p)
+			lp, _ := l.LookupWord(p)
 			if lp != p {
 				parts[i] = lp
 				changed = true
 			}
 		}
 		if changed {
-			return strings.Join(parts, "-")
+			return strings.Join(parts, "-"), SourceRule
 		}
-		return wn
+		return wn, SourceOOV
 	}
 	if l.suffixFallback {
-		return l.fallbackSuffix(wn)
-	}
-	return wn
-}
-
-// Conservative Russian productive case/plural suffixes for completely unseen OOV Cyrillic nouns.
-// Never turns OOV words into verbs or fake feminine -а nouns.
-var safeOOVSuffixes = []string{
-	"ами", "ями", "ах", "ях", "ам", "ям", "ов", "ев", "ом", "ем",
-}
-
-func (l *Lemmatizer) fallbackSuffix(w string) string {
-	rLen := utf8.RuneCountInString(w)
-	if rLen < 6 {
-		return w
-	}
-	// Productive Russian feminine -ия nouns in gen/dat/loc (-ии -> -ия, e.g. бодиметрии -> бодиметрия)
-	if rLen >= 7 && strings.HasSuffix(w, "ии") {
-		cand := strings.TrimSuffix(w, "ии") + "ия"
-		if lm, ok := l.lemmas[cand]; ok {
-			return lm
+		if lm, ok := l.fallbackSuffix(wn); ok {
+			return lm, SourceRule
 		}
-		return cand
 	}
-	for _, suf := range safeOOVSuffixes {
-		if strings.HasSuffix(w, suf) {
-			stem := strings.TrimSuffix(w, suf)
-			if utf8.RuneCountInString(stem) >= 4 {
-				// Only apply if stem itself is a known lemma or ends in a consonant
-				if lm, ok := l.lemmas[stem]; ok {
-					return lm
+	return wn, SourceOOV
+}
+
+// Word returns the normalized lemma (ё -> е) for a single token.
+func (l *Lemmatizer) Word(word string) string {
+	lm, _ := l.LookupWord(word)
+	return lm
+}
+
+// isCanonicalLemma reports whether cand is a known base lemma in l.lemmas (maps to itself).
+func (l *Lemmatizer) isCanonicalLemma(cand string) bool {
+	lm, ok := l.lemmas[cand]
+	return ok && lm == cand
+}
+
+func (l *Lemmatizer) tryCanon(cands ...string) (string, bool) {
+	for _, c := range cands {
+		if l.isCanonicalLemma(c) {
+			return c, true
+		}
+	}
+	return "", false
+}
+
+// tryFleeting restores a Russian fleeting vowel ('о'/'е') before the final stem consonant
+// (e.g. осколк -> осколок, шлепанц -> шлепанец, противн -> противень) ONLY when the candidate
+// is a verified canonical lemma in l.lemmas.
+func (l *Lemmatizer) tryFleeting(stem string) (string, bool) {
+	runes := []rune(stem)
+	n := len(runes)
+	if n < 4 {
+		return "", false
+	}
+	prefix := string(runes[:n-1])
+	last := string(runes[n-1])
+	return l.tryCanon(
+		prefix+"о"+last,
+		prefix+"е"+last,
+		prefix+"е"+last+"ь",
+		prefix+"о"+last+"ь",
+	)
+}
+
+func endsWithCyrVowel(s string) bool {
+	r, _ := utf8.DecodeLastRuneInString(s)
+	switch r {
+	case 'а', 'е', 'ё', 'и', 'о', 'у', 'ы', 'э', 'ю', 'я':
+		return true
+	}
+	return false
+}
+
+// Dictionary-verified suffix fallback for Russian inflected forms whose base lemma is present
+// in l.lemmas, preventing truncated non-word stems (e.g. пищевом->пищевой, нервном->нервный,
+// условием->условие, сухарями->сухарь, судебного->судебный, приказа->приказ, осколком->осколок).
+// Never returns an unverified truncated stem.
+func (l *Lemmatizer) fallbackSuffix(w string) (string, bool) {
+	rLen := utf8.RuneCountInString(w)
+	if rLen < 5 {
+		return w, false
+	}
+
+	// 1. Productive -ие / -ия / -ий nouns (условием->условие, обозначениями->обозначение, асимметрию->асимметрия)
+	if rLen >= 6 {
+		for _, suf := range []string{"иями", "иях", "иям", "ием"} {
+			if strings.HasSuffix(w, suf) {
+				p := strings.TrimSuffix(w, suf)
+				if utf8.RuneCountInString(p) >= 2 {
+					if lm, ok := l.tryCanon(p+"ие", p+"ия"); ok {
+						return lm, true
+					}
 				}
-				return stem
+			}
+		}
+		if strings.HasSuffix(w, "ию") {
+			p := strings.TrimSuffix(w, "ию")
+			if utf8.RuneCountInString(p) >= 2 {
+				if lm, ok := l.tryCanon(p+"ия", p+"ие"); ok {
+					return lm, true
+				}
+			}
+		}
+		if rLen >= 7 && strings.HasSuffix(w, "ии") {
+			p := strings.TrimSuffix(w, "ии")
+			if lm, ok := l.tryCanon(p+"ия", p+"ие", p+"ий"); ok {
+				return lm, true
+			}
+			// Productive Greco-Latin feminine -ия nouns (e.g. бодиметрии -> бодиметрия)
+			for _, root := range []string{"метр", "лог", "граф", "скоп", "терап", "ном", "фоб", "ман"} {
+				if strings.HasSuffix(p, root) {
+					return p + "ия", true
+				}
 			}
 		}
 	}
-	return w
+
+	// 2. Adjective & participle inflections (unambiguous endings: stemLen >= 3)
+	for _, suf := range []string{"ого", "ому", "ыми", "ая", "ую", "ое", "ые", "ых", "ым"} {
+		if strings.HasSuffix(w, suf) {
+			stem := strings.TrimSuffix(w, suf)
+			if utf8.RuneCountInString(stem) >= 3 {
+				if lm, ok := l.tryCanon(stem+"ый", stem+"ой", stem+"ий"); ok {
+					return lm, true
+				}
+			}
+		}
+	}
+	for _, suf := range []string{"его", "ему", "ими", "яя", "юю", "ее", "ие", "их", "им"} {
+		if strings.HasSuffix(w, suf) {
+			stem := strings.TrimSuffix(w, suf)
+			if utf8.RuneCountInString(stem) >= 3 {
+				if lm, ok := l.tryCanon(stem+"ий", stem+"ой", stem+"ый"); ok {
+					return lm, true
+				}
+			}
+		}
+	}
+
+	// 3. Shared adjective / noun endings (stemLen >= 4)
+	if strings.HasSuffix(w, "ом") {
+		stem := strings.TrimSuffix(w, "ом")
+		if utf8.RuneCountInString(stem) >= 4 && !endsWithCyrVowel(stem) {
+			if lm, ok := l.tryCanon(stem+"ый", stem+"ой", stem+"ий", stem, stem+"о", stem+"а"); ok {
+				return lm, true
+			}
+			if lm, ok := l.tryFleeting(stem); ok {
+				return lm, true
+			}
+		}
+	}
+	if strings.HasSuffix(w, "ем") {
+		stem := strings.TrimSuffix(w, "ем")
+		if utf8.RuneCountInString(stem) >= 4 && !endsWithCyrVowel(stem) {
+			if lm, ok := l.tryCanon(stem+"ий", stem+"ый", stem+"ь", stem+"й", stem+"е"); ok {
+				return lm, true
+			}
+			if lm, ok := l.tryFleeting(stem); ok {
+				return lm, true
+			}
+		}
+	}
+	if strings.HasSuffix(w, "ой") {
+		stem := strings.TrimSuffix(w, "ой")
+		if utf8.RuneCountInString(stem) >= 4 && !endsWithCyrVowel(stem) {
+			if lm, ok := l.tryCanon(stem+"ый", stem+"ий", stem+"ой", stem+"а"); ok {
+				return lm, true
+			}
+		}
+	}
+	if strings.HasSuffix(w, "ей") {
+		stem := strings.TrimSuffix(w, "ей")
+		if utf8.RuneCountInString(stem) >= 4 && !endsWithCyrVowel(stem) {
+			if lm, ok := l.tryCanon(stem+"ий", stem+"ый", stem+"ь", stem+"я", stem+"е"); ok {
+				return lm, true
+			}
+		}
+	}
+
+	// 4. Productive plural & oblique noun endings (stemLen >= 4, consonant stem)
+	for _, suf := range []string{"ами", "ах", "ам"} {
+		if strings.HasSuffix(w, suf) {
+			stem := strings.TrimSuffix(w, suf)
+			if utf8.RuneCountInString(stem) >= 4 && !endsWithCyrVowel(stem) {
+				if lm, ok := l.tryCanon(stem+"а", stem, stem+"о"); ok {
+					return lm, true
+				}
+				if lm, ok := l.tryFleeting(stem); ok {
+					return lm, true
+				}
+			}
+		}
+	}
+	for _, suf := range []string{"ями", "ях", "ям"} {
+		if strings.HasSuffix(w, suf) {
+			stem := strings.TrimSuffix(w, suf)
+			if utf8.RuneCountInString(stem) >= 4 && !endsWithCyrVowel(stem) {
+				if lm, ok := l.tryCanon(stem+"ь", stem+"я", stem+"е"); ok {
+					return lm, true
+				}
+				if lm, ok := l.tryFleeting(stem); ok {
+					return lm, true
+				}
+			}
+		}
+	}
+	if strings.HasSuffix(w, "ов") {
+		stem := strings.TrimSuffix(w, "ов")
+		if utf8.RuneCountInString(stem) >= 4 && !endsWithCyrVowel(stem) {
+			if lm, ok := l.tryCanon(stem, stem+"о"); ok {
+				return lm, true
+			}
+			if lm, ok := l.tryFleeting(stem); ok {
+				return lm, true
+			}
+		}
+	}
+	if strings.HasSuffix(w, "ев") {
+		stem := strings.TrimSuffix(w, "ев")
+		if utf8.RuneCountInString(stem) >= 4 && !endsWithCyrVowel(stem) {
+			if lm, ok := l.tryCanon(stem+"й", stem+"ь", stem+"е"); ok {
+				return lm, true
+			}
+			if lm, ok := l.tryFleeting(stem); ok {
+				return lm, true
+			}
+		}
+	}
+
+	// 5. Single-char noun case endings (strict: stemLen >= 4, consonant stem, verified canonical lemma only)
+	if rLen >= 5 {
+		if strings.HasSuffix(w, "у") {
+			stem := strings.TrimSuffix(w, "у")
+			if utf8.RuneCountInString(stem) >= 4 && !endsWithCyrVowel(stem) {
+				if lm, ok := l.tryCanon(stem+"а", stem, stem+"о"); ok {
+					return lm, true
+				}
+				if lm, ok := l.tryFleeting(stem); ok {
+					return lm, true
+				}
+			}
+		} else if strings.HasSuffix(w, "ю") {
+			stem := strings.TrimSuffix(w, "ю")
+			if utf8.RuneCountInString(stem) >= 4 && !endsWithCyrVowel(stem) {
+				if lm, ok := l.tryCanon(stem+"я", stem+"ь", stem+"й"); ok {
+					return lm, true
+				}
+			}
+		} else if strings.HasSuffix(w, "е") {
+			stem := strings.TrimSuffix(w, "е")
+			if utf8.RuneCountInString(stem) >= 4 && !endsWithCyrVowel(stem) {
+				if lm, ok := l.tryCanon(stem+"а", stem+"я", stem, stem+"ь", stem+"о"); ok {
+					return lm, true
+				}
+				if lm, ok := l.tryFleeting(stem); ok {
+					return lm, true
+				}
+			}
+		} else if strings.HasSuffix(w, "а") {
+			stem := strings.TrimSuffix(w, "а")
+			if utf8.RuneCountInString(stem) >= 4 && !endsWithCyrVowel(stem) {
+				if lm, ok := l.tryCanon(stem, stem+"о"); ok {
+					return lm, true
+				}
+				if lm, ok := l.tryFleeting(stem); ok {
+					return lm, true
+				}
+			}
+		} else if strings.HasSuffix(w, "я") {
+			stem := strings.TrimSuffix(w, "я")
+			if utf8.RuneCountInString(stem) >= 4 && !endsWithCyrVowel(stem) {
+				if lm, ok := l.tryCanon(stem+"ь", stem+"й", stem+"е"); ok {
+					return lm, true
+				}
+			}
+		} else if strings.HasSuffix(w, "и") {
+			stem := strings.TrimSuffix(w, "и")
+			if utf8.RuneCountInString(stem) >= 4 && !endsWithCyrVowel(stem) {
+				if lm, ok := l.tryCanon(stem+"а", stem+"я", stem+"ь", stem); ok {
+					return lm, true
+				}
+			}
+		} else if strings.HasSuffix(w, "ы") {
+			stem := strings.TrimSuffix(w, "ы")
+			if utf8.RuneCountInString(stem) >= 4 && !endsWithCyrVowel(stem) {
+				if lm, ok := l.tryCanon(stem+"а", stem); ok {
+					return lm, true
+				}
+			}
+		}
+	}
+
+	return w, false
 }
 
 // Lemmatize tokenizes text and returns the slice of lemmas in original token order.
@@ -376,6 +725,61 @@ func (l *Lemmatizer) SemanticKey(text string) string {
 	return l.SemanticKeyWithStop(text, DefaultKeyStopWords)
 }
 
+// LemmatizeAll returns (lemmatized_text, lemma_key, semantic_key) in a single tokenization & lookup pass.
+func (l *Lemmatizer) LemmatizeAll(text string) (lemText, lemmaKey, semanticKey string) {
+	return l.LemmatizeAllWithStop(text, DefaultKeyStopWords)
+}
+
+// LemmatizeAllWithStop returns (lemmatized_text, lemma_key, semantic_key) using a custom stop set
+// in a single pass (one Tokenize + one Word lookup per token instead of three separate passes).
+func (l *Lemmatizer) LemmatizeAllWithStop(text string, stop map[string]struct{}) (lemText, lemmaKey, semanticKey string) {
+	toks := Tokenize(text)
+	if len(toks) == 0 {
+		return "", "", ""
+	}
+	lemmas := make([]string, len(toks))
+	seenKey := make(map[string]struct{}, len(toks))
+	keys := make([]string, 0, len(toks))
+	seenSem := make(map[string]struct{}, len(toks))
+	semKeys := make([]string, 0, len(toks))
+
+	for i, t := range toks {
+		lm := l.Word(t)
+		lemmas[i] = lm
+		if lm == "" {
+			continue
+		}
+		if stop != nil {
+			if _, skip := stop[t]; skip {
+				continue
+			}
+			if tn := normYo(t); tn != t {
+				if _, skip := stop[tn]; skip {
+					continue
+				}
+			}
+			if _, skip := stop[lm]; skip {
+				continue
+			}
+		}
+		if _, dup := seenKey[lm]; !dup {
+			seenKey[lm] = struct{}{}
+			keys = append(keys, lm)
+		}
+		sem := lm
+		if noun, ok := l.adjToNoun[lm]; ok {
+			sem = noun
+		}
+		if _, dup := seenSem[sem]; !dup {
+			seenSem[sem] = struct{}{}
+			semKeys = append(semKeys, sem)
+		}
+	}
+	sort.Strings(keys)
+	sort.Strings(semKeys)
+	return strings.Join(lemmas, " "), strings.Join(keys, " "), strings.Join(semKeys, " ")
+}
+
 // SemanticKeyWithStop returns a derivational-aware canonical key excluding the given stop set.
 func (l *Lemmatizer) SemanticKeyWithStop(text string, stop map[string]struct{}) string {
 	toks := Tokenize(text)
@@ -417,17 +821,52 @@ func (l *Lemmatizer) SemanticKeyWithStop(text string, stop map[string]struct{}) 
 	return strings.Join(keys, " ")
 }
 
-// TypeGram returns grammatical gender/number for a Russian product type name.
+// lookupTypeToken resolves a single-word product type (singular or plural) against l.types.
+func (l *Lemmatizer) lookupTypeToken(tok string) (GramInfo, bool) {
+	if g, ok := l.types[tok]; ok && g.Number != "" {
+		return g, true
+	}
+	tn := normYo(tok)
+	if tn != tok {
+		if g, ok := l.types[tn]; ok && g.Number != "" {
+			return g, true
+		}
+	}
+	lm := l.Word(tn)
+	if lm != "" && lm != tn {
+		if g, ok := l.types[lm]; ok && g.Number != "" {
+			if g.Number == "plur" {
+				return g, true
+			}
+			// Plural Russian nominative forms of a singular product type (купальники, триммеры, пилы, ведра, кресла)
+			if strings.HasSuffix(tn, "ы") || strings.HasSuffix(tn, "и") ||
+				strings.HasSuffix(tn, "а") || strings.HasSuffix(tn, "я") {
+				return GramInfo{Gender: g.Gender, Number: "plur"}, true
+			}
+		}
+	}
+	return GramInfo{}, false
+}
+
+// TypeGram returns grammatical gender/number for a Russian product type name (singular or plural,
+// single-word or multi-word such as "купальники", "кофемашина", "стиральные машины").
 func (l *Lemmatizer) TypeGram(typeName string) (GramInfo, bool) {
 	tn := strings.ToLower(strings.TrimSpace(typeName))
 	if tn == "" {
 		return GramInfo{}, false
 	}
-	if g, ok := l.types[tn]; ok {
+	if g, ok := l.types[tn]; ok && g.Number != "" {
 		return g, true
 	}
-	if fields := strings.Fields(tn); len(fields) > 0 {
-		if g, ok := l.types[fields[0]]; ok {
+	fields := strings.Fields(tn)
+	if len(fields) == 1 {
+		return l.lookupTypeToken(fields[0])
+	}
+	if len(fields) > 1 {
+		if g, ok := l.lookupTypeToken(fields[0]); ok {
+			return g, true
+		}
+		if g, ok := l.lookupTypeToken(fields[len(fields)-1]); ok {
 			return g, true
 		}
 	}

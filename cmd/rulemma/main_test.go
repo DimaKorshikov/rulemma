@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/DimaKorshikov/rulemma"
 )
 
 func buildTestCLI(t *testing.T) string {
@@ -27,7 +29,7 @@ func TestCLIVersionInfoLemmatizeAndTSV(t *testing.T) {
 	if err != nil {
 		t.Fatalf("version failed: %v\n%s", err, out)
 	}
-	if !strings.Contains(string(out), "0.2.2") || !strings.Contains(string(out), "abi=1") {
+	if !strings.Contains(string(out), rulemma.Version) || !strings.Contains(string(out), "abi=1") {
 		t.Errorf("unexpected version output: %q", string(out))
 	}
 
@@ -62,6 +64,17 @@ func TestCLIVersionInfoLemmatizeAndTSV(t *testing.T) {
 	}
 	if got := strings.TrimSpace(string(out)); got != "в купить москва" {
 		t.Errorf("lemmatize --stopwords none got %q, want %q", got, "в купить москва")
+	}
+
+	// 4b. lemmatize --mode semkey --stopwords general (preserves commercial noun "магазин")
+	cmd = exec.Command(bin, "lemmatize", "--data", dataDir, "--mode", "semkey", "--stopwords", "general")
+	cmd.Stdin = strings.NewReader("оквэд для цветочного магазина\n")
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("lemmatize --stopwords general failed: %v\n%s", err, out)
+	}
+	if got := strings.TrimSpace(string(out)); got != "магазин оквэд цветок" {
+		t.Errorf("lemmatize --stopwords general got %q, want %q", got, "магазин оквэд цветок")
 	}
 
 	// 5. lemmatize --mode norm with and without --keep-yo
@@ -116,5 +129,34 @@ func TestCLIVersionInfoLemmatizeAndTSV(t *testing.T) {
 		if lines[0] != wantHdr {
 			t.Errorf("tsv mode=%s header = %q, want %q", mode, lines[0], wantHdr)
 		}
+	}
+
+	// 7. v0.3 technical profile & preposition bindings in CLI
+	cmd = exec.Command(bin, "lemmatize", "--data", dataDir, "--mode", "semkey", "--profile", "technical", "--bind-preps", "--bind-purpose")
+	cmd.Stdin = strings.NewReader("зимние ботинки б/у\nкофе без сахара с молоком\nпластик для окон\n")
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("lemmatize --profile technical failed: %v\n%s", err, out)
+	}
+	gotLines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(gotLines) != 3 || gotLines[0] != "б/у ботинок зима" || gotLines[1] != "без_сахар кофе молоко" || gotLines[2] != "для_окно пластик" {
+		t.Errorf("CLI technical profile unexpected output: %q", gotLines)
+	}
+
+	// 8. v0.3 analyze & inflect subcommands
+	out, err = exec.Command(bin, "analyze", "--data", dataDir, "пил").CombinedOutput()
+	if err != nil {
+		t.Fatalf("analyze failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(string(out), `"пила"`) || !strings.Contains(string(out), `"пить"`) {
+		t.Errorf("analyze(пил) unexpected output: %s", string(out))
+	}
+
+	out, err = exec.Command(bin, "inflect", "--data", dataDir, "--case", "accs", "стиральная", "машина", "LG", "F2V5").CombinedOutput()
+	if err != nil {
+		t.Fatalf("inflect failed: %v\n%s", err, out)
+	}
+	if got := strings.TrimSpace(string(out)); got != "стиральную машину LG F2V5" {
+		t.Errorf("inflect got %q, want %q", got, "стиральную машину LG F2V5")
 	}
 }

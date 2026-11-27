@@ -23,6 +23,9 @@ type Options struct {
 	DisableSuffixFallback bool
 	// ExtraOverridesPath optionally loads an additional user TSV override file (word\tlemma) on top of data/overrides.tsv.
 	ExtraOverridesPath string
+	// PreloadAll eagerly loads optional v0.3 morphology (morph/alt_lemmas) and inflection (paradigms) tables
+	// during Load instead of lazy on-first-use loading.
+	PreloadAll bool
 }
 
 // Manifest describes dictionary schema, version, entry counts, and SHA-256 checksums (`data/manifest.json`).
@@ -130,7 +133,7 @@ func loadLemmasFS(fsys fs.FS, label string) (map[string]string, error) {
 		return out, nil
 	}
 
-	out := make(map[string]string, 420000)
+	out := make(map[string]string, 215000)
 	sc := bufio.NewScanner(rc)
 	sc.Buffer(make([]byte, 64*1024), 1024*1024)
 	for sc.Scan() {
@@ -155,7 +158,7 @@ func loadLemmasFS(fsys fs.FS, label string) (map[string]string, error) {
 	return out, nil
 }
 
-func applyOverridesReader(lemmas map[string]string, r io.Reader) (int, error) {
+func applyOverridesReader(lemmas map[string]string, overrides map[string]struct{}, r io.Reader) (int, error) {
 	n := 0
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 32*1024), 512*1024)
@@ -174,30 +177,36 @@ func applyOverridesReader(lemmas map[string]string, r io.Reader) (int, error) {
 			continue
 		}
 		lemmas[w] = l
+		if overrides != nil {
+			overrides[w] = struct{}{}
+		}
 		if wn := normYo(w); wn != w {
 			lemmas[wn] = l
+			if overrides != nil {
+				overrides[wn] = struct{}{}
+			}
 		}
 		n++
 	}
 	return n, sc.Err()
 }
 
-func applyOverrides(lemmas map[string]string, path string) (int, error) {
+func applyOverrides(lemmas map[string]string, overrides map[string]struct{}, path string) (int, error) {
 	rc, err := openMaybeGzip(path)
 	if err != nil {
 		return 0, err
 	}
 	defer rc.Close()
-	return applyOverridesReader(lemmas, rc)
+	return applyOverridesReader(lemmas, overrides, rc)
 }
 
-func applyOverridesFS(lemmas map[string]string, fsys fs.FS, name string) (int, error) {
+func applyOverridesFS(lemmas map[string]string, overrides map[string]struct{}, fsys fs.FS, name string) (int, error) {
 	rc, err := openMaybeGzipFS(fsys, name)
 	if err != nil {
 		return 0, err
 	}
 	defer rc.Close()
-	return applyOverridesReader(lemmas, rc)
+	return applyOverridesReader(lemmas, overrides, rc)
 }
 
 func loadAdjFormsFS(fsys fs.FS) (map[string]string, error) {

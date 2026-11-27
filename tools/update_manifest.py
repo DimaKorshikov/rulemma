@@ -12,14 +12,17 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
 
 SCHEMA_VERSION = 1
-DEFAULT_DICT_VERSION = "2026.11.2"
-DEFAULT_ENGINE_MIN_VERSION = "0.2.2"
+DEFAULT_DICT_VERSION = "2026.11.4"
+DEFAULT_ENGINE_MIN_VERSION = "0.3.0"
 
 DICT_FILES = {
     "lemmas": "lemmas.tsv.gz",
     "adj_forms": "adj_forms.tsv.gz",
     "types": "types.tsv.gz",
     "adj_noun": "adj_noun.tsv.gz",
+    "morph": "morph.tsv.gz",
+    "alt_lemmas": "alt_lemmas.tsv.gz",
+    "paradigms": "paradigms.tsv.gz",
     "overrides": "overrides.tsv",
 }
 

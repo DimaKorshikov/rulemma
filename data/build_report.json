@@ -1,40 +1,49 @@
 {
-  "total_lemmas": 204839,
-  "total_adj_forms": 74094,
+  "total_lemmas": 204993,
+  "total_adj_forms": 74098,
   "prtf_adj_forms_added": 6428,
-  "total_types": 4662,
-  "overrides_applied": 383,
+  "total_types": 4669,
+  "total_morph": 117022,
+  "total_alt_lemmas": 11158,
+  "total_paradigms": 347,
+  "total_paradigm_words": 44472,
+  "overrides_applied": 464,
   "extra_words_added": 49950,
   "rule_stats": {
     "guard_2_char": 651,
-    "identity": 75615,
-    "fix_oov_verb_adjs": 6191,
-    "fix_oov_propn": 6082,
-    "oov_regular_inflect": 12412,
+    "identity": 75635,
+    "fix_oov_verb_adjs": 6190,
+    "fix_oov_propn": 6083,
+    "oov_regular_inflect": 12407,
     "fix_oov_fake_femn_gent": 4188,
-    "known_default": 54729,
-    "rule_adj_form": 26540,
+    "known_default": 54698,
+    "rule_adj_form": 26541,
     "fix_known_name_plur_gent": 756,
     "fix_oov_strip_a": 3226,
-    "known_adj": 7102,
+    "known_adj": 7105,
     "fix_oov_indecl": 2219,
     "fix_prtf_to_adj": 3755,
-    "override": 383,
+    "override": 464,
     "fix_oov_archaic_adj": 186,
     "fix_known_propn_vs_noun": 227,
     "fix_known_vs_verb_adjs": 91,
-    "fix_known_vs_gent": 175,
-    "fix_known_adjs_vs_noun": 170,
+    "fix_known_vs_gent": 174,
+    "fix_known_adjs_vs_noun": 167,
     "fix_known_vs_propn": 62,
+    "fix_prefer_oy_adj": 44,
     "fix_known_impr_grnd_vs_noun": 33,
     "fix_nye_spelling": 23,
     "allow_2_char": 20,
-    "fix_known_short_infr": 3
+    "fix_known_short_infr": 3,
+    "compound_toponym": 97
   },
   "sizes_kb": {
-    "lemmas.tsv.gz": 1131.3,
-    "adj_forms.tsv.gz": 480.0,
-    "types.tsv.gz": 24.3
+    "lemmas.tsv.gz": 1132.3,
+    "adj_forms.tsv.gz": 480.1,
+    "types.tsv.gz": 24.3,
+    "morph.tsv.gz": 523.2,
+    "alt_lemmas.tsv.gz": 118.1,
+    "paradigms.tsv.gz": 214.3
   },
   "changed_vs_raw_sample": [
     [
@@ -338,5 +347,5 @@
       "авббшв"
     ]
   ],
-  "seconds": 23.0
+  "seconds": 85.9
 }

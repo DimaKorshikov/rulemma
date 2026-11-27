@@ -16,6 +16,7 @@ package main
 import "C"
 
 import (
+	"encoding/json"
 	"runtime"
 	"strings"
 	"sync"
@@ -155,6 +156,43 @@ func rulemma_word(h C.int64_t, word *C.char) *C.char {
 	return C.CString(lem.Word(C.GoString(word)))
 }
 
+// rulemma_lookup_word returns the lemma and writes provenance code to outSource:
+// 0 = oov, 1 = dict, 2 = override, 3 = rule.
+//
+//export rulemma_lookup_word
+func rulemma_lookup_word(h C.int64_t, word *C.char, outSource *C.int) *C.char {
+	lem := getLem(int64(h))
+	if lem == nil {
+		return nil
+	}
+	res, src := lem.LookupWord(C.GoString(word))
+	if outSource != nil {
+		switch src {
+		case rulemma.SourceDict:
+			*outSource = 1
+		case rulemma.SourceOverride:
+			*outSource = 2
+		case rulemma.SourceRule:
+			*outSource = 3
+		default:
+			*outSource = 0
+		}
+	}
+	return C.CString(res)
+}
+
+//export rulemma_dict_version
+func rulemma_dict_version(h C.int64_t) *C.char {
+	lem := getLem(int64(h))
+	if lem == nil {
+		return nil
+	}
+	if m := lem.Manifest(); m != nil {
+		return C.CString(m.DictVersion)
+	}
+	return C.CString("")
+}
+
 //export rulemma_lemmatize
 func rulemma_lemmatize(h C.int64_t, text *C.char) *C.char {
 	lem := getLem(int64(h))
@@ -290,9 +328,11 @@ func runBatch(lem *rulemma.Lemmatizer, payload *C.char, payloadLen C.int, mode C
 		case 2:
 			return lem.SemanticKeyWithStop(s, stop)
 		case 3:
-			return lem.LemmatizeString(s) + "\t" + lem.LemmaKeyWithStop(s, stop)
+			txt, key, _ := lem.LemmatizeAllWithStop(s, stop)
+			return txt + "\t" + key
 		case 4:
-			return lem.LemmatizeString(s) + "\t" + lem.LemmaKeyWithStop(s, stop) + "\t" + lem.SemanticKeyWithStop(s, stop)
+			txt, key, sem := lem.LemmatizeAllWithStop(s, stop)
+			return txt + "\t" + key + "\t" + sem
 		case 5:
 			return rulemma.NormalizePhrase(s, false)
 		case 6:
@@ -361,6 +401,288 @@ func rulemma_batch_stop(h C.int64_t, payload *C.char, payloadLen C.int, mode C.i
 	}
 	stop := parseStopWordsC(stopwordsNewline)
 	return runBatch(lem, payload, payloadLen, mode, stop, workers, outLen)
+}
+
+type cKeyOptionsJSON struct {
+	Semantic             bool     `json:"semantic"`
+	Profile              string   `json:"profile"`
+	StopWords            []string `json:"stopwords"`
+	HasStopWords         bool     `json:"has_stopwords"`
+	NormalizeHomoglyphs  bool     `json:"normalize_homoglyphs"`
+	SplitHyphens         bool     `json:"split_hyphens"`
+	SplitNumberUnit      bool     `json:"split_number_unit"`
+	CompactCodes         bool     `json:"compact_codes"`
+	PreservePrepBindings bool     `json:"preserve_prep_bindings"`
+	BindPurposePrep      bool     `json:"bind_purpose_prep"`
+	KeepWords            []string `json:"keep_words"`
+	ExcludeAdjToNoun     []string `json:"exclude_adj_to_noun"`
+}
+
+func decodeKeyOptionsC(optsJSON *C.char) rulemma.KeyOptions {
+	if optsJSON == nil {
+		return rulemma.KeyOptions{}
+	}
+	raw := C.GoString(optsJSON)
+	if raw == "" {
+		return rulemma.KeyOptions{}
+	}
+	var cfg cKeyOptionsJSON
+	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
+		return rulemma.KeyOptions{}
+	}
+	opts := rulemma.KeyOptions{
+		Semantic: cfg.Semantic,
+		Profile:  cfg.Profile,
+		Tokenizer: rulemma.TokenizerOptions{
+			NormalizeHomoglyphs: cfg.NormalizeHomoglyphs,
+			SplitHyphens:        cfg.SplitHyphens,
+			SplitNumberUnit:     cfg.SplitNumberUnit,
+			CompactCodes:        cfg.CompactCodes,
+		},
+		PreservePrepBindings: cfg.PreservePrepBindings,
+		BindPurposePrep:      cfg.BindPurposePrep,
+	}
+	if cfg.HasStopWords {
+		opts.StopWords = rulemma.MakeStopWords(cfg.StopWords)
+	}
+	if len(cfg.KeepWords) > 0 {
+		opts.KeepWords = rulemma.MakeStopWords(cfg.KeepWords)
+	}
+	if len(cfg.ExcludeAdjToNoun) > 0 {
+		opts.ExcludeAdjToNoun = rulemma.MakeStopWords(cfg.ExcludeAdjToNoun)
+	}
+	return opts
+}
+
+//export rulemma_normalize_homoglyphs
+func rulemma_normalize_homoglyphs(text *C.char) *C.char {
+	if text == nil {
+		return C.CString("")
+	}
+	return C.CString(rulemma.NormalizeHomoglyphs(C.GoString(text)))
+}
+
+//export rulemma_tokenize_tech
+func rulemma_tokenize_tech(text *C.char, optsJSON *C.char) *C.char {
+	if text == nil {
+		return C.CString("[]")
+	}
+	var topts rulemma.TokenizerOptions
+	if optsJSON != nil {
+		raw := C.GoString(optsJSON)
+		if raw != "" {
+			var cfg cKeyOptionsJSON
+			if json.Unmarshal([]byte(raw), &cfg) == nil {
+				topts = rulemma.TokenizerOptions{
+					NormalizeHomoglyphs: cfg.NormalizeHomoglyphs,
+					SplitHyphens:        cfg.SplitHyphens,
+					SplitNumberUnit:     cfg.SplitNumberUnit,
+					CompactCodes:        cfg.CompactCodes,
+				}
+			}
+		}
+	}
+	toks := rulemma.TokenizeTechnical(C.GoString(text), topts)
+	type tokOut struct {
+		Text   string `json:"text"`
+		IsTech bool   `json:"is_tech"`
+		IsNum  bool   `json:"is_num"`
+	}
+	res := make([]tokOut, len(toks))
+	for i, tk := range toks {
+		res[i] = tokOut{Text: tk.Text, IsTech: tk.IsTech, IsNum: tk.IsNum}
+	}
+	b, _ := json.Marshal(res)
+	return C.CString(string(b))
+}
+
+//export rulemma_key_ex
+func rulemma_key_ex(h C.int64_t, text *C.char, optsJSON *C.char) *C.char {
+	lem := getLem(int64(h))
+	if lem == nil {
+		return nil
+	}
+	opts := decodeKeyOptionsC(optsJSON)
+	return C.CString(lem.KeyWithOptions(C.GoString(text), opts))
+}
+
+//export rulemma_batch_ex
+func rulemma_batch_ex(h C.int64_t, payload *C.char, payloadLen C.int, optsJSON *C.char, workers C.int, outLen *C.int) *C.char {
+	lem := getLem(int64(h))
+	if lem == nil {
+		return nil
+	}
+	if payloadLen <= 0 || payload == nil {
+		if outLen != nil {
+			*outLen = 0
+		}
+		return C.CString("")
+	}
+	opts := decodeKeyOptionsC(optsJSON)
+	raw := C.GoStringN(payload, payloadLen)
+	lines := strings.Split(raw, "\n")
+	n := len(lines)
+	out := make([]string, n)
+
+	w := int(workers)
+	if w <= 0 {
+		w = runtime.NumCPU()
+	}
+	if n < 512 {
+		w = 1
+	} else if w > n {
+		w = n
+	}
+
+	if w == 1 {
+		for i, s := range lines {
+			out[i] = lem.KeyWithOptions(s, opts)
+		}
+	} else {
+		chunk := (n + w - 1) / w
+		var wg sync.WaitGroup
+		for wi := 0; wi < w; wi++ {
+			start := wi * chunk
+			if start >= n {
+				break
+			}
+			end := start + chunk
+			if end > n {
+				end = n
+			}
+			wg.Add(1)
+			go func(a, b int) {
+				defer wg.Done()
+				for i := a; i < b; i++ {
+					out[i] = lem.KeyWithOptions(lines[i], opts)
+				}
+			}(start, end)
+		}
+		wg.Wait()
+	}
+
+	joined := strings.Join(out, "\n")
+	if outLen != nil {
+		*outLen = C.int(len(joined))
+	}
+	return C.CString(joined)
+}
+
+//export rulemma_analyze
+func rulemma_analyze(h C.int64_t, word *C.char) *C.char {
+	lem := getLem(int64(h))
+	if lem == nil {
+		return nil
+	}
+	info := lem.Analyze(C.GoString(word))
+	b, _ := json.Marshal(info)
+	return C.CString(string(b))
+}
+
+//export rulemma_prep_governs
+func rulemma_prep_governs(h C.int64_t, prep *C.char, nextWord *C.char) C.int {
+	lem := getLem(int64(h))
+	if lem == nil {
+		return 0
+	}
+	if lem.PrepGoverns(C.GoString(prep), C.GoString(nextWord)) {
+		return 1
+	}
+	return 0
+}
+
+//export rulemma_inflect
+func rulemma_inflect(h C.int64_t, word *C.char, targetCase *C.char, targetNumber *C.char, outOK *C.int) *C.char {
+	lem := getLem(int64(h))
+	if lem == nil {
+		return nil
+	}
+	num := ""
+	if targetNumber != nil {
+		num = C.GoString(targetNumber)
+	}
+	res, ok := lem.Inflect(C.GoString(word), C.GoString(targetCase), num)
+	if outOK != nil {
+		if ok {
+			*outOK = 1
+		} else {
+			*outOK = 0
+		}
+	}
+	return C.CString(res)
+}
+
+//export rulemma_inflect_adj
+func rulemma_inflect_adj(h C.int64_t, adj *C.char, targetCase *C.char, gender *C.char, number *C.char, animate C.int, outOK *C.int) *C.char {
+	lem := getLem(int64(h))
+	if lem == nil {
+		return nil
+	}
+	res, ok := lem.InflectAdj(C.GoString(adj), C.GoString(targetCase), C.GoString(gender), C.GoString(number), animate != 0)
+	if outOK != nil {
+		if ok {
+			*outOK = 1
+		} else {
+			*outOK = 0
+		}
+	}
+	return C.CString(res)
+}
+
+//export rulemma_inflect_phrase
+func rulemma_inflect_phrase(h C.int64_t, phrase *C.char, targetCase *C.char, targetNumber *C.char, outOK *C.int) *C.char {
+	lem := getLem(int64(h))
+	if lem == nil {
+		return nil
+	}
+	num := ""
+	if targetNumber != nil {
+		num = C.GoString(targetNumber)
+	}
+	res, ok := lem.InflectPhrase(C.GoString(phrase), C.GoString(targetCase), num)
+	if outOK != nil {
+		if ok {
+			*outOK = 1
+		} else {
+			*outOK = 0
+		}
+	}
+	return C.CString(res)
+}
+
+//export rulemma_all_forms
+func rulemma_all_forms(h C.int64_t, word *C.char) *C.char {
+	lem := getLem(int64(h))
+	if lem == nil {
+		return nil
+	}
+	forms := lem.AllForms(C.GoString(word))
+	if forms == nil {
+		forms = []string{}
+	}
+	b, _ := json.Marshal(forms)
+	return C.CString(string(b))
+}
+
+//export rulemma_agree_number
+func rulemma_agree_number(h C.int64_t, n C.double, word *C.char) *C.char {
+	lem := getLem(int64(h))
+	if lem == nil {
+		return nil
+	}
+	return C.CString(lem.AgreeNumber(float64(n), C.GoString(word)))
+}
+
+//export rulemma_preposition
+func rulemma_preposition(prep *C.char, nextWord *C.char) *C.char {
+	if prep == nil {
+		return C.CString("")
+	}
+	nw := ""
+	if nextWord != nil {
+		nw = C.GoString(nextWord)
+	}
+	return C.CString(rulemma.Preposition(C.GoString(prep), nw))
 }
 
 func main() {}

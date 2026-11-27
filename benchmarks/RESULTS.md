@@ -1,27 +1,27 @@
 # Результаты бенчмарка rulemma против библиотек русского NLP
 
 Замер выполнен на Linux x86_64 (CPU потоков: 32), Python 3.12.3, Go 1.23.
-Наборы данных: общий русский (133), e-commerce и поиск (120), пары дедупликации (55), батч (20,000 уникальных 7-словных запросов). Каждая библиотека запускалась в отдельном изолированном процессе для честного замера пикового RSS RAM.
+Наборы данных: общий русский (133), e-commerce и поиск (120), пары дедупликации (55), батч (20,000 7-словных запросов; уникальных строк: 20,000, уникальных токенов: 751). Каждая библиотека запускалась в отдельном изолированном процессе для честного замера пикового RSS RAM.
 
 | Библиотека | Архитектура и лицензия | Общий RU | E-Commerce | Дедупликация F1 | Холодный старт | Пик RSS RAM | 1 запрос | Батч из Python |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| **[rulemma](../README.md) 0.2.2 (Go CGO)** | Словарь + правила (Go, MIT) | 99.2% | 100.0% | 100.0% (FP=0) | 172 мс | 104.1 МБ | 128.5 мкс | **663,709 запр/с** |
-| **[pymorphy3](https://github.com/no-plagiarism/pymorphy3) (без кэша)** | OpenCorpora FST (Python, MIT) | 94.7% | 41.7% | 18.2% (FP=0) | 47 мс | 45.4 МБ | 404.5 мкс | **2,471 запр/с** |
-| **[pymorphy3](https://github.com/no-plagiarism/pymorphy3) (`lru_cache` 200k)** | OpenCorpora FST + кэш (Python, MIT) | 94.7% | 41.7% | 18.2% (FP=0) | 47 мс | 45.4 МБ | 5.0 мкс | **200,278 запр/с** |
-| **[mawo-pymorphy3](https://pypi.org/project/mawo-pymorphy3/)** | Форк pymorphy3 (Python, MIT) | 81.2% | 76.7% | 14.0% (FP=0) | 20 мс | 39.8 МБ | 458.8 мкс | **2,167 запр/с** |
-| **[SteosMorphy](https://github.com/SteosOfficial/SteosMorphy-py) (Go `ctypes`)** | Go DAWG + JSON ctypes (MIT) | 84.2% | 76.7% | 18.2% (FP=0) | 281 мс | 584.0 МБ | 3,407.5 мкс | **726 запр/с** |
-| **[Natasha](https://github.com/natasha/natasha) ([Slovnet](https://github.com/natasha/slovnet))** | Нейросеть POS + OpenCorpora (MIT) | 95.5% | 74.2% | 13.6% (FP=1) | 2430 мс | 234.2 МБ | 4,016.6 мкс | **248 запр/с** |
-| **[simplemma](https://github.com/adbar/simplemma) (`ru`)** | Словарь + правила (Python, MIT) | 93.2% | 90.0% | 14.0% (FP=0) | 2743 мс | 162.8 МБ | 10.1 мкс | **98,939 запр/с** |
-| **[pymystem3](https://github.com/nlpub/pymystem3) ([Яндекс MyStem](https://yandex.ru/dev/mystem/))** | C++ бинарник (проприетарный) | 92.5% | 89.2% | 22.2% (FP=0) | 897 мс | 32.2 МБ | 165.6 мкс | **5,314 запр/с** |
-| **[SnowballStemmer](https://github.com/snowballstem/snowball) (`ru`)** | Стеммер (Python, BSD-3) | 16.5% | 49.2% | 29.2% (FP=1) | 0 мс | 21.8 МБ | 121.4 мкс | **8,236 запр/с** |
+| **[rulemma](../README.md) 0.3.0 (Go CGO)** | Словарь + правила (Go, MIT) | 99.2% | 100.0% | 100.0% (FP=0) | 198 мс | 106.1 МБ | 136.9 мкс | **681,306 запр/с** |
+| **[pymorphy3](https://github.com/no-plagiarism/pymorphy3) (без кэша)** | OpenCorpora FST (Python, MIT) | 94.7% | 41.7% | 18.2% (FP=0) | 69 мс | 45.2 МБ | 386.2 мкс | **2,589 запр/с** |
+| **[pymorphy3](https://github.com/no-plagiarism/pymorphy3) (`lru_cache` 200k)** | OpenCorpora FST + кэш (Python, MIT) | 94.7% | 41.7% | 18.2% (FP=0) | 69 мс | 45.2 МБ | 5.2 мкс | **192,537 запр/с** |
+| **[mawo-pymorphy3](https://pypi.org/project/mawo-pymorphy3/)** | Форк pymorphy3 (Python, MIT) | 81.2% | 76.7% | 14.0% (FP=0) | 38 мс | 39.7 МБ | 451.6 мкс | **1,492 запр/с** |
+| **[SteosMorphy](https://github.com/SteosOfficial/SteosMorphy-py) (Go `ctypes`)** | Go DAWG + JSON ctypes (MIT) | 84.2% | 76.7% | 18.2% (FP=0) | 1248 мс | 571.6 МБ | 4,368.3 мкс | **547 запр/с** |
+| **[Natasha](https://github.com/natasha/natasha) ([Slovnet](https://github.com/natasha/slovnet))** | Нейросеть POS + OpenCorpora (MIT) | 95.5% | 74.2% | 13.6% (FP=1) | 1462 мс | 232.5 МБ | 826.0 мкс | **1,210 запр/с** |
+| **[simplemma](https://github.com/adbar/simplemma) (`ru`)** | Словарь + правила (Python, MIT) | 93.2% | 90.0% | 14.0% (FP=0) | 1007 мс | 163.6 МБ | 5.6 мкс | **177,613 запр/с** |
+| **[pymystem3](https://github.com/nlpub/pymystem3) ([Яндекс MyStem](https://yandex.ru/dev/mystem/))** | C++ бинарник (проприетарный) | 92.5% | 89.2% | 22.2% (FP=0) | 416 мс | 33.2 МБ | 124.8 мкс | **7,397 запр/с** |
+| **[SnowballStemmer](https://github.com/snowballstem/snowball) (`ru`)** | Стеммер (Python, BSD-3) | 16.5% | 49.2% | 29.2% (FP=1) | 0 мс | 21.8 МБ | 120.6 мкс | **8,294 запр/с** |
 
 ## Масштабирование `rulemma` на батчах (Python CGO, 7-словные запросы)
 
 | Объём батча | `lemmatize_batch` | Скорость (`lemmatize`) | `semantic_keys` | Скорость (`semantic_keys`) | Пик RSS RAM процесса |
 |---:|---:|---:|---:|---:|---:|
-| 20,000 | 0.029 с | **691,549 запр/с** | 0.027 с | **745,955 запр/с** | 106.8 МБ |
-| 100,000 | 0.159 с | **629,713 запр/с** | 0.152 с | **657,987 запр/с** | 215.7 МБ |
-| 1,000,000 | 1.183 с | **844,953 запр/с** | 1.166 с | **857,423 запр/с** | 1281.3 МБ |
+| 20,000 | 0.040 с | **503,738 запр/с** | 0.039 с | **516,112 запр/с** | 107.6 МБ |
+| 100,000 | 0.170 с | **589,884 запр/с** | 0.125 с | **798,437 запр/с** | 213.5 МБ |
+| 1,000,000 | 1.723 с | **580,399 запр/с** | 1.331 с | **751,147 запр/с** | 1272.9 МБ |
 
 ## Примечания к методике
 

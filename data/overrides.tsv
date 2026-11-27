@@ -400,3 +400,86 @@
 рамен	рамен	ramen noodle soup (not ADJS рамный / рамена)
 биты	бита	pl of бита (screwdriver bit / bat, not ADJS битый)
 лосины	лосины	pluralia tantum leggings (not ADJS лосиный)
+
+# v0.2.3: Pluralia tantum, paradigm consistency, common Russian forms & toponym fixes
+носки	носок	pl of носок (sock, not носка carrying; consistent with носков/носками -> носок)
+полок	полка	gen pl of полка (shelf, common plural over bath bench полок)
+проводов	провод	gen pl of провод (wire/cable, not проводы farewell)
+духи	духи	pluralia tantum perfume (not дух spirit)
+духов	духи	gen pl of духи (perfume)
+духам	духи	dat pl of духи
+духами	духи	ins pl of духи
+духах	духи	loc pl of духи
+трусы	трусы	pluralia tantum underwear (not трус coward)
+трусов	трусы	gen pl of трусы
+трусам	трусы	dat pl of трусы
+трусами	трусы	ins pl of трусы
+трусах	трусы	loc pl of трусы
+сливки	сливки	pluralia tantum cream (not сливка)
+сливок	сливки	gen pl of сливки
+сливкам	сливки	dat pl of сливки
+сливками	сливки	ins pl of сливки
+сливках	сливки	loc pl of сливки
+щипцы	щипцы	pluralia tantum tongs/pliers (not щипец)
+щипцов	щипцы	gen pl of щипцы
+щипцам	щипцы	dat pl of щипцы
+щипцами	щипцы	ins pl of щипцы
+щипцах	щипцы	loc pl of щипцы
+ходунки	ходунки	pluralia tantum baby walker (not ходунок)
+ходунков	ходунки	gen pl of ходунки
+ходункам	ходунки	dat pl of ходунки
+ходунками	ходунки	ins pl of ходунки
+ходунках	ходунки	loc pl of ходунки
+бокорезы	бокорезы	pluralia tantum side cutters (not бокореза)
+бокорезов	бокорезы	gen pl of бокорезы
+бокорезам	бокорезы	dat pl of бокорезы
+бокорезами	бокорезы	ins pl of бокорезы
+бокорезах	бокорезы	loc pl of бокорезы
+сланцы	сланцы	pluralia tantum flip-flops (not сланец shale)
+сланцев	сланцы	gen pl of сланцы
+сланцам	сланцы	dat pl of сланцы
+сланцами	сланцы	ins pl of сланцы
+сланцах	сланцы	loc pl of сланцы
+румян	румяна	gen pl of румяна (blush, not ADJS румяный)
+румянам	румяна	dat pl of румяна
+румянами	румяна	ins pl of румяна
+румянах	румяна	loc pl of румяна
+берцы	берцы	pluralia tantum combat boots
+берцев	берцы	gen pl of берцы (not берец)
+берц	берцы	gen pl variant of берцы
+берцам	берцы	dat pl of берцы
+берцами	берцы	ins pl of берцы
+берцах	берцы	loc pl of берцы
+лосин	лосины	gen pl of лосины (not лосина)
+лосинам	лосины	dat pl of лосины
+лосинами	лосины	ins pl of лосины
+лосинах	лосины	loc pl of лосины
+угг	угги	gen pl of угги
+уггов	угги	gen pl variant of угги
+уггам	угги	dat pl of угги
+уггами	угги	ins pl of угги
+уггах	угги	loc pl of угги
+джоггеры	джоггер	pl of джоггер (not fake femn джоггера)
+джоггеров	джоггер	gen pl of джоггер
+джоггерам	джоггер	dat pl of джоггер
+джоггерами	джоггер	ins pl of джоггер
+джоггерах	джоггер	loc pl of джоггер
+шлепанцев	шлепанец	gen pl of шлепанец (fleeting vowel)
+шлепанцам	шлепанец	dat pl of шлепанец
+шлепанцами	шлепанец	ins pl of шлепанец
+шлепанцах	шлепанец	loc pl of шлепанец
+чешек	чешка	gen pl of чешка (gym shoes, fleeting vowel)
+колготкам	колготки	dat pl of колготки
+санкам	санки	dat pl of санки
+хлопьям	хлопья	dat pl of хлопья
+чипсам	чипсы	dat pl of чипсы
+сергиевом	сергиев	loc of Сергиев (Сергиев Посад, not сергиево)
+сергиеву	сергиев	dat of Сергиев
+самолигирующий	самолигирующий	adjectival participle (orthodontic brackets)
+самолигирующая	самолигирующий	femn of самолигирующий
+самолигирующее	самолигирующий	neut of самолигирующий
+самолигирующие	самолигирующий	plur of самолигирующий
+самолигирующих	самолигирующий	gen plur of самолигирующий
+самолигирующими	самолигирующий	ins plur of самолигирующий
+втроем	втроем	adverb (in threes)
+платят	платить	common verb 3pl of платить

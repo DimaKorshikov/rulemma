@@ -4,11 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rulemma"
-version = "0.2.2"
+version = "0.3.0"
 description = "Быстрый лемматизатор русского языка и e-commerce запросов на Go с нативными Python-биндингами (CGO), дедупликацией ключей и словарём adj->noun"
 readme = "README.md"
-license = "MIT"
-license-files = ["LICENSE"]
+license = {file = "LICENSE"}
 requires-python = ">=3.9"
 authors = [
   {name = "Коршиков Дмитрий (Dmitry Korshikov)"},

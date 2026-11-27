@@ -1,26 +1,35 @@
 {
   "schema_version": 1,
-  "dict_version": "2026.11.2",
-  "engine_min_version": "0.2.2",
+  "dict_version": "2026.11.4",
+  "engine_min_version": "0.3.0",
   "files": {
     "lemmas": "lemmas.tsv.gz",
     "adj_forms": "adj_forms.tsv.gz",
     "types": "types.tsv.gz",
     "adj_noun": "adj_noun.tsv.gz",
+    "morph": "morph.tsv.gz",
+    "alt_lemmas": "alt_lemmas.tsv.gz",
+    "paradigms": "paradigms.tsv.gz",
     "overrides": "overrides.tsv"
   },
   "counts": {
-    "lemmas": 204839,
-    "adj_forms": 74094,
-    "types": 4662,
-    "adj_noun": 4030,
-    "overrides": 383
+    "lemmas": 204993,
+    "adj_forms": 74098,
+    "types": 4669,
+    "adj_noun": 4010,
+    "morph": 117022,
+    "alt_lemmas": 11158,
+    "paradigms": 44819,
+    "overrides": 464
   },
   "sha256": {
-    "lemmas.tsv.gz": "2b082f9e69156d4bc5832bc3f60111e9de62a8969d6521ff8dc8d0f7a5593c09",
-    "adj_forms.tsv.gz": "bfbaa408c4713b0b71b986faefd73e39c31de2c105ed9556988c3e98af62eaac",
-    "types.tsv.gz": "340628a69b290a1c9cc3689397069352964fe8e10c411c35d716ffc644cfe7ba",
-    "adj_noun.tsv.gz": "891ae5c0c13207a8ba4e19a8258d6d0b75011cef29049f34b81a9ff7db553c0c",
-    "overrides.tsv": "97ff3ec80dc2a2bb5adff0c4a42613995f4894850736075f316b2a2bff95b94b"
+    "lemmas.tsv.gz": "acc0199c3f6fcfa1b1b3011a1026d4df929fc87811216a97ddfd6e38a17da3d1",
+    "adj_forms.tsv.gz": "c8c4c046fc1ef67876b306743b5f2e32f46e93b03be60de5593455bf613df78a",
+    "types.tsv.gz": "a4bb52dd9f2a416ba9b74a84855eb627b9dbd713f3fe85ef56b736d36aaa2298",
+    "adj_noun.tsv.gz": "54dfb6cb7dc6058f19d107cd137f8beb0d75d90560979001a95596d4d713ae1f",
+    "morph.tsv.gz": "f020e68aa39ab493b1d4f84645492086fbe5fc39a534bfe6f4955d07da330da1",
+    "alt_lemmas.tsv.gz": "600458f13b00deac72c8b08159f806d446f19422096057b3228e07b7a81a0235",
+    "paradigms.tsv.gz": "789ae844ad884b3c3f63f07d84bbde542300f77b8cecb65178b4eea5af98496a",
+    "overrides.tsv": "fad5986f421541cc73161a7a6135caf6798b5ee4730f1c190db5ba5f4d460e39"
   }
 }

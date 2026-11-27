@@ -282,6 +282,7 @@ func TestNormalizePhrase(t *testing.T) {
 		{"  Купить   Чёрные  кроссовки, 42! ", true, "купить чёрные кроссовки 42"},
 		{"Ёлка-иголка (180 см) — хит!", false, "елка-иголка 180 см хит"},
 		{"Ёлка-иголка (180 см) — хит!", true, "ёлка-иголка 180 см хит"},
+		{"a--b  foo---bar", false, "a b foo bar"},
 		{"---  !!!  ...", false, ""},
 		{"", false, ""},
 	}
@@ -303,6 +304,57 @@ func TestMakeStopWordsAndCustomStop(t *testing.T) {
 	}
 	if got := lem.SemanticKeyWithStop("Купить зимние кроссовки в Москве", stop); got != "зима кроссовок купить" {
 		t.Errorf("SemanticKeyWithStop = %q, want %q", got, "зима кроссовок купить")
+	}
+	// GeneralKeyStopWords preserves commercial nouns like "магазин"
+	if got := lem.SemanticKeyWithStop("оквэд для цветочного магазина", GeneralKeyStopWords); got != "магазин оквэд цветок" {
+		t.Errorf("SemanticKeyWithStop(GeneralKeyStopWords) = %q, want %q", got, "магазин оквэд цветок")
+	}
+	// DefaultKeyStopWords preserves negation marker "без"
+	if k1, k2 := lem.SemanticKey("шоколад без сахара"), lem.SemanticKey("шоколад с сахаром"); k1 == k2 || !strings.Contains(k1, "без") {
+		t.Errorf("DefaultKeyStopWords must preserve 'без': got %q vs %q", k1, k2)
+	}
+}
+
+func TestLookupWordAndLemmatizeAll(t *testing.T) {
+	lem := loadTestLem(t)
+	if m := lem.Manifest(); m == nil || m.DictVersion == "" {
+		t.Errorf("expected loaded Manifest with DictVersion, got %+v", m)
+	}
+
+	lookupCases := []struct {
+		word    string
+		wantLem string
+		wantSrc string
+	}{
+		{"духи", "духи", SourceOverride},
+		{"кроссовки", "кроссовок", SourceDict},
+		{"судебного", "судебный", SourceRule},
+		{"интернет-магазинов", "интернет-магазин", SourceRule},
+		{"abrakadabra123", "abrakadabra123", SourceOOV},
+	}
+	for _, tc := range lookupCases {
+		gotL, gotS := lem.LookupWord(tc.word)
+		if gotL != tc.wantLem || gotS != tc.wantSrc {
+			t.Errorf("LookupWord(%q) = (%q, %q), want (%q, %q)", tc.word, gotL, gotS, tc.wantLem, tc.wantSrc)
+		}
+	}
+
+	// Verify single-pass LemmatizeAllWithStop matches individual methods identically
+	phrases := []string{
+		"Купить зимние кроссовки Найк в Москве",
+		"Шоколад без сахара и без глютена",
+		"Доставка в Ростове-на-Дону",
+		"",
+	}
+	for _, p := range phrases {
+		txt, key, sem := lem.LemmatizeAll(p)
+		if txt != lem.LemmatizeString(p) || key != lem.LemmaKey(p) || sem != lem.SemanticKey(p) {
+			t.Errorf("LemmatizeAll(%q) = (%q, %q, %q), mismatch with individual methods", p, txt, key, sem)
+		}
+		txt2, key2, sem2 := lem.LemmatizeAllWithStop(p, GeneralKeyStopWords)
+		if txt2 != lem.LemmatizeString(p) || key2 != lem.LemmaKeyWithStop(p, GeneralKeyStopWords) || sem2 != lem.SemanticKeyWithStop(p, GeneralKeyStopWords) {
+			t.Errorf("LemmatizeAllWithStop(%q) mismatch with individual methods", p)
+		}
 	}
 }
 

@@ -34,7 +34,7 @@ sys.path.insert(0, str(ROOT / "python"))
 
 TOK_RE = re.compile(r"[a-zа-яё0-9]+(?:-[a-zа-яё0-9]+)*", re.I)
 STOP_WORDS = {
-    "в", "во", "на", "для", "и", "с", "со", "по", "из", "от", "до", "без", "под", "к", "у", "о", "об",
+    "в", "во", "на", "для", "и", "с", "со", "по", "из", "от", "до", "под", "к", "у", "о", "об",
     "а", "или", "купить", "цена", "цены", "недорого", "дешево", "интернет", "магазин",
 }
 
@@ -91,17 +91,23 @@ def load_dedup_pairs(path: Path) -> list[tuple[int, str, str, str]]:
 
 
 def build_queries(ecom_all: list[tuple[str, str]], n: int) -> list[str]:
+    """Generate n deterministic, pairwise-distinct 7-word Russian queries.
+
+    Uses coprime pool lengths (257, 241, 251) and mixed step offsets so every query
+    up to >15M is unique (fixing an earlier LCM(260,240)=3,120 repeat cycle).
+    """
     all_words = [w for w, _ in ecom_all]
-    nouns_pool = all_words[:260]
-    adjs_pool = all_words[480:720]
-    tail_pool = all_words[720:980]
+    nouns_pool = all_words[:257]
+    adjs_pool = all_words[480 : 480 + 241]
+    tail_pool = all_words[721 : 721 + 251]
+    p1, p2, p3 = len(nouns_pool), len(adjs_pool), len(tail_pool)
     out = []
     for i in range(n):
-        w1 = nouns_pool[i % len(nouns_pool)]
-        w2 = adjs_pool[(i * 7 + 3) % len(adjs_pool)]
-        w3 = tail_pool[(i * 13 + 5) % len(tail_pool)]
-        w4 = nouns_pool[(i * 17 + 11) % len(nouns_pool)]
-        w5 = adjs_pool[(i * 23 + 19) % len(adjs_pool)]
+        w1 = nouns_pool[i % p1]
+        w2 = adjs_pool[(i // p1 + i * 7 + 3) % p2]
+        w3 = tail_pool[(i // (p1 * 3) + i * 13 + 5) % p3]
+        w4 = nouns_pool[(i * 17 + 11) % p1]
+        w5 = adjs_pool[(i * 23 + 19) % p2]
         out.append(f"купить {w2} {w1} для {w3} {w5} {w4}")
     return out
 
@@ -644,6 +650,10 @@ def main() -> None:
         print("[bench] Running rulemma scaling check (20k / 100k / 1M queries)...", flush=True)
         scale_results = invoke_subprocess("rulemma_scale", args.batch_size)
 
+    sample_batch = build_queries(ecom_all, args.batch_size)
+    unique_queries = len(set(sample_batch))
+    unique_tokens = len({t for q in sample_batch for t in TOK_RE.findall(q.lower())})
+
     out = {
         "cpu_count": os.cpu_count(),
         "python_version": sys.version.split()[0],
@@ -652,6 +662,8 @@ def main() -> None:
             "ecommerce_ru": len(ecom_hard),
             "dedup_pairs": len(dedup_pairs),
             "batch_queries": args.batch_size,
+            "batch_unique_queries": unique_queries,
+            "batch_unique_tokens": unique_tokens,
         },
         "models": results,
     }
@@ -677,7 +689,7 @@ def main() -> None:
         "# Результаты бенчмарка rulemma против библиотек русского NLP",
         "",
         f"Замер выполнен на Linux x86_64 (CPU потоков: {os.cpu_count()}), Python {sys.version.split()[0]}, Go 1.23.",
-        f"Наборы данных: общий русский ({len(general_pairs)}), e-commerce и поиск ({len(ecom_hard)}), пары дедупликации ({len(dedup_pairs)}), батч ({args.batch_size:,} уникальных 7-словных запросов). Каждая библиотека запускалась в отдельном изолированном процессе для честного замера пикового RSS RAM.",
+        f"Наборы данных: общий русский ({len(general_pairs)}), e-commerce и поиск ({len(ecom_hard)}), пары дедупликации ({len(dedup_pairs)}), батч ({args.batch_size:,} 7-словных запросов; уникальных строк: {unique_queries:,}, уникальных токенов: {unique_tokens:,}). Каждая библиотека запускалась в отдельном изолированном процессе для честного замера пикового RSS RAM.",
         "",
         "| Библиотека | Архитектура и лицензия | Общий RU | E-Commerce | Дедупликация F1 | Холодный старт | Пик RSS RAM | 1 запрос | Батч из Python |",
         "|---|---|---:|---:|---:|---:|---:|---:|---:|",

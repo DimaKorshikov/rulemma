@@ -18,3 +18,4 @@
 | [`10_ecommerce_overrides`](10_ecommerce_overrides/) | Python + TSV | Подключение доменного `custom_overrides.tsv` без пересборки словарей |
 | [`11_seo_title_builder`](11_seo_title_builder/) | Python + Go | Согласование прилагательных/причастий и сборка SEO-названий (`BuildSEOName`) |
 | [`12_tfidf_with_rulemma`](12_tfidf_with_rulemma/) | Python | Подготовка корпуса через `lemmatize_batch` и расчёт TF-IDF (с рецептом для `scikit-learn`) |
+| [`13_technical_morph_inflect`](13_technical_morph_inflect/) | Python | Профиль технических токенов (`v0.3`), связки предлогов, морфоанализ (`analyze`/`prep_governs`) и склонение (`inflect_phrase`/`agree_number`) |

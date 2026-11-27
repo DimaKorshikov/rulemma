@@ -133,6 +133,32 @@ BLOCKED_PAIRS: set[tuple[str, str]] = {
     ("слабый", "слабость"),
     ("этот", "это"),
     ("весь", "все"),
+    # v0.2.3: Verified semantic drift & toponym/facet collisions from real corpus audits
+    ("переносный", "переноска"),
+    ("переносной", "переноска"),
+    ("нижний", "низ"),
+    ("успокоительный", "успокоитель"),
+    ("взрослый", "взросление"),
+    ("готовый", "готовка"),
+    ("жареный", "жар"),
+    ("горячий", "горячее"),
+    ("советский", "совет"),
+    ("местный", "место"),
+    ("английский", "англия"),
+    ("цифровой", "цифра"),
+    ("электронный", "электроника"),
+    ("компактный", "компакт"),
+    ("навесный", "навес"),
+    ("навесной", "навес"),
+    ("варочный", "варка"),
+    ("военный", "война"),
+    ("дополнительный", "дополнение"),
+    ("профессиональный", "профессионал"),
+    ("юридический", "юрист"),
+    ("семеновский", "семен"),
+    ("преображенский", "преображение"),
+    ("настольный", "стол"),        # настольная игра != игровой стол (оба давали бы "игра стол")
+    ("напольный", "пол"),          # напольные весы / кондиционер: риск коллизии с омонимом "пол" (муж/жен) и "для пола"
 }
 
 # Qualitative abstract noun suffixes: reject adj->noun when noun ends in -ость/-есть/-ота/-ета/-изм
@@ -240,6 +266,10 @@ EXTRA_RELATIONAL: dict[str, str] = {
     "кошачий": "кошка",
     "собачий": "собака",
     "птичий": "птица",
+    # v0.2.3/v0.3.0: Core spatial & placement e-commerce facets (excluding настольный->стол & напольный->пол due to collisions)
+    "настенный": "стена",
+    "потолочный": "потолок",
+    "петербургский": "санкт-петербург",
 }
 
 # Preferred canonical noun when a group has multiple nouns (e.g. дети/дитя/ребенок -> ребенок, фото/фотография -> фото)
@@ -272,88 +302,118 @@ def load_lemmas(path: Path) -> dict[str, str]:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--csv", type=Path, required=True, help="Path to manually checked adj-noun CSV")
+    parser.add_argument("--csv", type=Path, default=None, help="Path to manually checked adj-noun CSV")
+    parser.add_argument(
+        "--in-place",
+        action="store_true",
+        help="Audit and update existing data/adj_noun.tsv.gz using BLOCKED_PAIRS and EXTRA_RELATIONAL without source CSV",
+    )
     parser.add_argument("--report", type=Path, default=None, help="Optional JSON audit report path")
     args = parser.parse_args()
 
+    if not args.in_place and args.csv is None:
+        parser.error("Provide either --csv PATH or --in-place")
+
     lemmas = load_lemmas(DATA_DIR / "lemmas.tsv.gz")
-    groups: dict[str, list[tuple[str, str]]] = defaultdict(list)
-    with args.csv.open(encoding="utf-8-sig") as f:
-        for r in csv.DictReader(f):
-            gid = r["group_id"].strip()
-            w = norm_yo(r["word"].strip().lower())
-            w = TYPO_FIXES.get(w, w)
-            pos = r["part_of_speech"].strip().lower()
-            if w and CYR_RE.fullmatch(w):
-                groups[gid].append((w, pos))
-
-    # Fix known mis-tagged POS in CSV
-    if "4024" in groups:
-        groups["4024"] = [("ведьмин", "adj"), ("ведьма", "noun")]
-
     stats = Counter()
     rejected: list[dict] = []
     adj_to_noun: dict[str, str] = {}
-    noun_aliases: dict[str, str] = {}  # e.g. дитя -> ребенок, дети -> ребенок
 
-    for gid, items in sorted(groups.items(), key=lambda kv: int(kv[0]) if kv[0].isdigit() else 999999):
-        adjs = [w for w, p in items if p == "adj"]
-        nouns = [w for w, p in items if p == "noun"]
-        if not adjs or not nouns:
-            stats["drop_malformed_group"] += 1
-            rejected.append({"gid": gid, "reason": "malformed_group", "items": items})
-            continue
+    if args.in_place:
+        existing_path = DATA_DIR / "adj_noun.tsv.gz"
+        with gzip.open(existing_path, "rt", encoding="utf-8") as f:
+            for line in f:
+                line = line.rstrip("\n")
+                if not line or line.startswith("#") or "\t" not in line:
+                    continue
+                a, n = line.split("\t", 1)
+                a = norm_yo(a.strip().lower())
+                n = norm_yo(n.strip().lower())
+                al = lemmas.get(a, a)
+                if al.endswith(("ть", "ться", "ти", "чь")) and a.endswith(("ый", "ий", "ой")):
+                    al = a
+                if (al, n) in BLOCKED_PAIRS or (a, n) in BLOCKED_PAIRS:
+                    stats["drop_blocked_semantic_drift"] += 1
+                    rejected.append({"reason": "blocked_semantic_drift", "adj": al, "noun": n})
+                    continue
+                adj_to_noun[al] = n
+                stats["kept_existing"] += 1
+        groups = {}
+    else:
+        groups: dict[str, list[tuple[str, str]]] = defaultdict(list)
+        with args.csv.open(encoding="utf-8-sig") as f:
+            for r in csv.DictReader(f):
+                gid = r["group_id"].strip()
+                w = norm_yo(r["word"].strip().lower())
+                w = TYPO_FIXES.get(w, w)
+                pos = r["part_of_speech"].strip().lower()
+                if w and CYR_RE.fullmatch(w):
+                    groups[gid].append((w, pos))
 
-        # Normalize nouns via rulemma clean dictionary (so руны->руна, дети->ребенок, etc.)
-        norm_nouns = []
-        for n in nouns:
-            nl = lemmas.get(n, n)
-            # Keep noun if rulemma maps it to a valid noun form (not an adj/verb)
-            if nl.endswith(("ый", "ий", "ой", "ть", "ться")) and not n.endswith(("ый", "ий", "ой", "ть", "ться")):
-                nl = n
-            norm_nouns.append(nl)
-        # Pick best canonical noun in group
-        canon_noun = max(
-            set(norm_nouns),
-            key=lambda x: (PREFERRED_NOUN_RANK.get(x, 0), 1 if x in lemmas else 0, -len(x)),
-        )
-        # Record extra noun synonyms inside multi-noun groups (e.g. дитя -> ребенок)
-        for nn in set(norm_nouns):
-            if nn != canon_noun and len(nn) >= 3:
-                noun_aliases[nn] = canon_noun
+        # Fix known mis-tagged POS in CSV
+        if "4024" in groups:
+            groups["4024"] = [("ведьмин", "adj"), ("ведьма", "noun")]
 
-        for a in adjs:
-            al = lemmas.get(a, a)
-            # Keep adjective form if rulemma lemmatized a participle to a verb (e.g. ламинированный -> ламинировать)
-            if al.endswith(("ть", "ться", "ти", "чь")) and a.endswith(("ый", "ий", "ой")):
-                al = a
+        noun_aliases: dict[str, str] = {}  # e.g. дитя -> ребенок, дети -> ребенок
 
-            if al == canon_noun:
-                stats["drop_identity"] += 1
-                continue
-            if (al, canon_noun) in BLOCKED_PAIRS or (a, canon_noun) in BLOCKED_PAIRS:
-                stats["drop_blocked_semantic_drift"] += 1
-                rejected.append({"gid": gid, "reason": "blocked_semantic_drift", "adj": al, "noun": canon_noun})
-                continue
-            if len(canon_noun) <= 2 or len(al) <= 3:
-                stats["drop_too_short"] += 1
-                rejected.append({"gid": gid, "reason": "too_short", "adj": al, "noun": canon_noun})
-                continue
-            if any(canon_noun.endswith(s) for s in ABSTRACT_SUFFIXES) and canon_noun not in CONCRETE_ALLOW_NOUNS:
-                stats["drop_abstract_noun"] += 1
-                rejected.append({"gid": gid, "reason": "abstract_noun", "adj": al, "noun": canon_noun})
-                continue
-            # Reject verbal-participle adjectives ending in -ущий/-ющий/-ащий/-ящий/-вший (e.g. очищающий, отбеливающий)
-            if al.endswith(("ущий", "ющий", "ащий", "ящий", "вший")):
-                stats["drop_active_participle"] += 1
-                rejected.append({"gid": gid, "reason": "active_participle", "adj": al, "noun": canon_noun})
+        for gid, items in sorted(groups.items(), key=lambda kv: int(kv[0]) if kv[0].isdigit() else 999999):
+            adjs = [w for w, p in items if p == "adj"]
+            nouns = [w for w, p in items if p == "noun"]
+            if not adjs or not nouns:
+                stats["drop_malformed_group"] += 1
+                rejected.append({"gid": gid, "reason": "malformed_group", "items": items})
                 continue
 
-            if al not in adj_to_noun:
-                adj_to_noun[al] = canon_noun
-                stats["kept_from_csv"] += 1
-            else:
-                stats["dup_adj_skipped"] += 1
+            # Normalize nouns via rulemma clean dictionary (so руны->руна, дети->ребенок, etc.)
+            norm_nouns = []
+            for n in nouns:
+                nl = lemmas.get(n, n)
+                # Keep noun if rulemma maps it to a valid noun form (not an adj/verb)
+                if nl.endswith(("ый", "ий", "ой", "ть", "ться")) and not n.endswith(("ый", "ий", "ой", "ть", "ться")):
+                    nl = n
+                norm_nouns.append(nl)
+            # Pick best canonical noun in group
+            canon_noun = max(
+                set(norm_nouns),
+                key=lambda x: (PREFERRED_NOUN_RANK.get(x, 0), 1 if x in lemmas else 0, -len(x)),
+            )
+            # Record extra noun synonyms inside multi-noun groups (e.g. дитя -> ребенок)
+            for nn in set(norm_nouns):
+                if nn != canon_noun and len(nn) >= 3:
+                    noun_aliases[nn] = canon_noun
+
+            for a in adjs:
+                al = lemmas.get(a, a)
+                # Keep adjective form if rulemma lemmatized a participle to a verb (e.g. ламинированный -> ламинировать)
+                if al.endswith(("ть", "ться", "ти", "чь")) and a.endswith(("ый", "ий", "ой")):
+                    al = a
+
+                if al == canon_noun:
+                    stats["drop_identity"] += 1
+                    continue
+                if (al, canon_noun) in BLOCKED_PAIRS or (a, canon_noun) in BLOCKED_PAIRS:
+                    stats["drop_blocked_semantic_drift"] += 1
+                    rejected.append({"gid": gid, "reason": "blocked_semantic_drift", "adj": al, "noun": canon_noun})
+                    continue
+                if len(canon_noun) <= 2 or len(al) <= 3:
+                    stats["drop_too_short"] += 1
+                    rejected.append({"gid": gid, "reason": "too_short", "adj": al, "noun": canon_noun})
+                    continue
+                if any(canon_noun.endswith(s) for s in ABSTRACT_SUFFIXES) and canon_noun not in CONCRETE_ALLOW_NOUNS:
+                    stats["drop_abstract_noun"] += 1
+                    rejected.append({"gid": gid, "reason": "abstract_noun", "adj": al, "noun": canon_noun})
+                    continue
+                # Reject verbal-participle adjectives ending in -ущий/-ющий/-ащий/-ящий/-вший (e.g. очищающий, отбеливающий)
+                if al.endswith(("ущий", "ющий", "ащий", "ящий", "вший")):
+                    stats["drop_active_participle"] += 1
+                    rejected.append({"gid": gid, "reason": "active_participle", "adj": al, "noun": canon_noun})
+                    continue
+
+                if al not in adj_to_noun:
+                    adj_to_noun[al] = canon_noun
+                    stats["kept_from_csv"] += 1
+                else:
+                    stats["dup_adj_skipped"] += 1
 
     # Merge guaranteed curated e-commerce relational pairs (highest priority)
     extra_added = 0
