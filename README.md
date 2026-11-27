@@ -27,7 +27,7 @@
 git clone https://github.com/DimaKorshikov/rulemma.git
 cd rulemma
 make build            # собирает bin/rulemma и python/rulemma/librulemma.so
-pip install --no-build-isolation .
+pip install .
 ```
 
 ```python
