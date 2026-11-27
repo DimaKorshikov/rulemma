@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 470" width="960" height="470" role="img" aria-label="Динамика версий rulemma от v0.2.0 до v0.4.0">
 <title>Динамика версий rulemma v0.2.0 — v0.4.0: память, холодный старт, охват словарей и WASM</title>
 <rect width="960" height="470" rx="14" fill="#14171A" stroke="#2F353B" stroke-width="1"/>
-<text x="28" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#E7E3DA">Динамика версий rulemma: от v0.2.0 к v0.4.0</text>
-<text x="28" y="59" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" fill="#969B97">Словари и функции выросли почти вдвое, а байтовая арена в v0.4.0 сократила RAM на 40.5% и ускорила старт в 2–3.2×</text>
-<rect x="708" y="20" width="224" height="32" rx="16" fill="#332119" stroke="#DF7E58" stroke-opacity="0.35"/>
-<text x="820" y="40" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#DF7E58">v0.4.0: 37.1 МБ RAM &lt; pymorphy3</text>
+<text x="28" y="34" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="17.5" font-weight="700" fill="#E7E3DA">Динамика версий rulemma (v0.2.0 → v0.4.0)</text>
+<text x="28" y="60" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#969B97">Словари выросли вдвое (250k → 481k), байтовая арена снизила RAM на 40.5% и ускорила старт в 2–3.2×</text>
+<rect data-pill="1" x="700" y="15" width="236" height="26" rx="13" fill="#332119" stroke="#DF7E58" stroke-opacity="0.35"/>
+<text x="818" y="32" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" fill="#DF7E58">v0.4.0: 37.1 МБ RAM &lt; pymorphy3</text>
 <rect x="24" y="78" width="452" height="266" rx="12" fill="#1B1F23" stroke="#2F353B"/>
 <text x="42" y="104" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#E7E3DA">Память (RSS) и холодный старт</text>
 <circle cx="48" cy="124" r="4.5" fill="#DF7E58"/>
@@ -31,18 +31,18 @@
 <text x="62" y="142" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#969B97">МБ</text>
 <text x="444" y="142" text-anchor="start" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" fill="#77B390">мс</text>
 <line x1="70" y1="245.0" x2="436" y2="245.0" stroke="#8E9490" stroke-width="1.2" stroke-dasharray="4,4"/>
-<rect x="114.3" y="229.5" width="112" height="14" rx="3" fill="#1B1F23" fill-opacity="0.92"/>
-<text x="170.3" y="240.0" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10" font-weight="600" fill="#8E9490">pymorphy3: 45.0 МБ</text>
-<rect x="91.0" y="193.1" width="22" height="108.9" rx="4" fill="#77B390" fill-opacity="0.20"/>
+<rect x="111.3" y="230.0" width="82" height="13.5" rx="3" fill="#1B1F23" fill-opacity="0.95"/>
+<text x="152.3" y="240.0" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="9.5" font-weight="600" fill="#8E9490">pymorphy3: 45 МБ</text>
+<rect x="94.0" y="193.1" width="16" height="108.9" rx="4" fill="#77B390" fill-opacity="0.20"/>
 <text x="102.0" y="319" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#E7E3DA">v0.2.2</text>
 <text x="102.0" y="333" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#77B390">172 мс</text>
-<rect x="191.7" y="176.6" width="22" height="125.4" rx="4" fill="#77B390" fill-opacity="0.20"/>
+<rect x="194.7" y="176.6" width="16" height="125.4" rx="4" fill="#77B390" fill-opacity="0.20"/>
 <text x="202.7" y="319" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#E7E3DA">v0.3.0</text>
 <text x="202.7" y="333" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#77B390">198 мс</text>
-<rect x="292.3" y="184.8" width="22" height="117.2" rx="4" fill="#77B390" fill-opacity="0.20"/>
+<rect x="295.3" y="184.8" width="16" height="117.2" rx="4" fill="#77B390" fill-opacity="0.20"/>
 <text x="303.3" y="319" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#E7E3DA">v0.3.1</text>
 <text x="303.3" y="333" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#77B390">185 мс</text>
-<rect x="393.0" y="243.1" width="22" height="58.9" rx="4" fill="#77B390" fill-opacity="0.20"/>
+<rect x="396.0" y="243.1" width="16" height="58.9" rx="4" fill="#77B390" fill-opacity="0.20"/>
 <text x="404.0" y="319" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="11" font-weight="700" fill="#DF7E58">v0.4.0</text>
 <text x="404.0" y="333" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#77B390">93 мс</text>
 <polyline fill="none" stroke="#74A3C2" stroke-width="2.4" points="102.0,170.1 202.7,167.6 303.3,168.7 404.0,219.3"/>

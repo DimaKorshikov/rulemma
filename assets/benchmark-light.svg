@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 446" width="960" height="446" role="img" aria-label="Сравнение производительности и точности rulemma 0.4.0 с 7 библиотеками">
 <title>Бенчмарк rulemma 0.4.0 против 7 библиотек русского NLP (20 000 уникальных 7-словных запросов)</title>
 <rect width="960" height="446" rx="14" fill="#FAF7F0" stroke="#E5DEC9" stroke-width="1"/>
-<text x="28" y="36" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#2E3538">Бенчмарк 8 библиотек: батч из Python (20 000 уникальных запросов)</text>
-<text x="28" y="57" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" fill="#6E7470">Изолированный процесс на каждую библиотеку · Linux x86_64 (Ryzen 9 5950X) · Python 3.12 · Go 1.23</text>
-<rect x="708" y="18" width="224" height="32" rx="16" fill="#E7F0EA" stroke="#4F7D63" stroke-opacity="0.35"/>
-<text x="820" y="38" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" fill="#4F7D63">1M запросов: 1.47 с (682k/с)</text>
+<text x="28" y="34" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="17.5" font-weight="700" fill="#2E3538">Бенчмарк 8 библиотек: батч из Python (20k запросов)</text>
+<text x="28" y="60" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#6E7470">Отдельный процесс на библиотеку · 20 000 уникальных 7-словных запросов · Ryzen 9 5950X · Python 3.12 · Go 1.23</text>
+<rect data-pill="1" x="712" y="15" width="224" height="26" rx="13" fill="#E7F0EA" stroke="#4F7D63" stroke-opacity="0.35"/>
+<text x="824" y="32" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" fill="#4F7D63">1M запросов: 1.47 с (682k/с)</text>
 <text x="28" y="88" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#6E7470">БИБЛИОТЕКА</text>
 <text x="248" y="88" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#6E7470">СКОРОСТЬ БАТЧА (запросов / сек)</text>
 <text x="786" y="88" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#6E7470">E-COM</text>

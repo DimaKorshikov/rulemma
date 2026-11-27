@@ -5,6 +5,8 @@ Zero external dependencies (Python stdlib only). Writes:
   - assets/version-evolution-dark.svg
   - assets/benchmark-light.svg
   - assets/benchmark-dark.svg
+  - assets/pipeline-light.svg
+  - assets/pipeline-dark.svg
 """
 from __future__ import annotations
 
@@ -75,12 +77,12 @@ def render_version_evolution(theme_name: str, t: dict[str, str]) -> str:
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" aria-label="Динамика версий rulemma от v0.2.0 до v0.4.0">',
         "<title>Динамика версий rulemma v0.2.0 — v0.4.0: память, холодный старт, охват словарей и WASM</title>",
         f'<rect width="{W}" height="{H}" rx="14" fill="{t["bg"]}" stroke="{t["border"]}" stroke-width="1"/>',
-        # Header
-        f'<text x="28" y="38" font-family="{FONT}" font-size="18" font-weight="700" fill="{t["ink"]}">Динамика версий rulemma: от v0.2.0 к v0.4.0</text>',
-        f'<text x="28" y="59" font-family="{FONT}" font-size="12" fill="{t["muted"]}">Словари и функции выросли почти вдвое, а байтовая арена в v0.4.0 сократила RAM на 40.5% и ускорила старт в 2–3.2×</text>',
+        # Header (pill strictly aligned with title line y=15..41; subtitle sits cleanly below at y=60)
+        f'<text x="28" y="34" font-family="{FONT}" font-size="17.5" font-weight="700" fill="{t["ink"]}">Динамика версий rulemma (v0.2.0 → v0.4.0)</text>',
+        f'<text x="28" y="60" font-family="{FONT}" font-size="11.5" fill="{t["muted"]}">Словари выросли вдвое (250k → 481k), байтовая арена снизила RAM на 40.5% и ускорила старт в 2–3.2×</text>',
         # Badge top-right
-        f'<rect x="708" y="20" width="224" height="32" rx="16" fill="{t["accent_soft"]}" stroke="{t["accent"]}" stroke-opacity="0.35"/>',
-        f'<text x="820" y="40" text-anchor="middle" font-family="{FONT}" font-size="12" font-weight="700" fill="{t["accent"]}">v0.4.0: 37.1 МБ RAM &lt; pymorphy3</text>',
+        f'<rect data-pill="1" x="700" y="15" width="236" height="26" rx="13" fill="{t["accent_soft"]}" stroke="{t["accent"]}" stroke-opacity="0.35"/>',
+        f'<text x="818" y="32" text-anchor="middle" font-family="{FONT}" font-size="11.5" font-weight="700" fill="{t["accent"]}">v0.4.0: 37.1 МБ RAM &lt; pymorphy3</text>',
     ]
 
     # --- LEFT CARD: Memory (RSS MB) & Cold Start (ms) ---
@@ -117,12 +119,12 @@ def render_version_evolution(theme_name: str, t: dict[str, str]) -> str:
     # Reference line: pymorphy3 base RSS = 45.0 MB (label centered in clean gap between v0.2.2 and v0.3.0)
     y_pm = py + ph - (45.0 / 120.0) * ph
     out.append(f'<line x1="{px}" y1="{y_pm:.1f}" x2="{px+pw}" y2="{y_pm:.1f}" stroke="{t["ref_line"]}" stroke-width="1.2" stroke-dasharray="4,4"/>')
-    pm_mid_x = (xs_left[0] + xs_left[1]) / 2.0 + 18
-    out.append(f'<rect x="{pm_mid_x-56:.1f}" y="{y_pm-15.5:.1f}" width="112" height="14" rx="3" fill="{t["card"]}" fill-opacity="0.92"/>')
-    out.append(f'<text x="{pm_mid_x:.1f}" y="{y_pm-5:.1f}" text-anchor="middle" font-family="{FONT}" font-size="10" font-weight="600" fill="{t["ref_line"]}">pymorphy3: 45.0 МБ</text>')
+    pm_mid_x = (xs_left[0] + xs_left[1]) / 2.0
+    out.append(f'<rect x="{pm_mid_x-41:.1f}" y="{y_pm-15:.1f}" width="82" height="13.5" rx="3" fill="{t["card"]}" fill-opacity="0.95"/>')
+    out.append(f'<text x="{pm_mid_x:.1f}" y="{y_pm-5:.1f}" text-anchor="middle" font-family="{FONT}" font-size="9.5" font-weight="600" fill="{t["ref_line"]}">pymorphy3: 45 МБ</text>')
 
-    # Bars for cold start ms (scaled 0..240) — soft fill without heavy border
-    bar_w = 22
+    # Bars for cold start ms (scaled 0..240) — slim soft fill without heavy border
+    bar_w = 16
     for i, (ver, base_mb, peak_mb, ms) in enumerate(rel_left):
         cx = xs_left[i]
         bh = (ms / 240.0) * ph
@@ -246,10 +248,10 @@ def render_benchmark(theme_name: str, t: dict[str, str], results: dict) -> str:
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" aria-label="Сравнение производительности и точности rulemma 0.4.0 с 7 библиотеками">',
         "<title>Бенчмарк rulemma 0.4.0 против 7 библиотек русского NLP (20 000 уникальных 7-словных запросов)</title>",
         f'<rect width="{W}" height="{H}" rx="14" fill="{t["bg"]}" stroke="{t["border"]}" stroke-width="1"/>',
-        f'<text x="28" y="36" font-family="{FONT}" font-size="18" font-weight="700" fill="{t["ink"]}">Бенчмарк 8 библиотек: батч из Python (20 000 уникальных запросов)</text>',
-        f'<text x="28" y="57" font-family="{FONT}" font-size="12" fill="{t["muted"]}">Изолированный процесс на каждую библиотеку · Linux x86_64 (Ryzen 9 5950X) · Python 3.12 · Go 1.23</text>',
-        f'<rect x="708" y="18" width="224" height="32" rx="16" fill="{t["green_soft"]}" stroke="{t["green"]}" stroke-opacity="0.35"/>',
-        f'<text x="820" y="38" text-anchor="middle" font-family="{FONT}" font-size="11.5" font-weight="700" fill="{t["green"]}">1M запросов: 1.47 с (682k/с)</text>',
+        f'<text x="28" y="34" font-family="{FONT}" font-size="17.5" font-weight="700" fill="{t["ink"]}">Бенчмарк 8 библиотек: батч из Python (20k запросов)</text>',
+        f'<text x="28" y="60" font-family="{FONT}" font-size="11.5" fill="{t["muted"]}">Отдельный процесс на библиотеку · 20 000 уникальных 7-словных запросов · Ryzen 9 5950X · Python 3.12 · Go 1.23</text>',
+        f'<rect data-pill="1" x="712" y="15" width="224" height="26" rx="13" fill="{t["green_soft"]}" stroke="{t["green"]}" stroke-opacity="0.35"/>',
+        f'<text x="824" y="32" text-anchor="middle" font-family="{FONT}" font-size="11.5" font-weight="700" fill="{t["green"]}">1M запросов: 1.47 с (682k/с)</text>',
     ]
 
     # Table headers
@@ -322,6 +324,118 @@ def render_benchmark(theme_name: str, t: dict[str, str], results: dict) -> str:
     return "\n".join(out) + "\n"
 
 
+def render_pipeline(theme_name: str, t: dict[str, str]) -> str:
+    W, H = 960, 318
+    out: list[str] = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" aria-label="Архитектура конвейера rulemma">',
+        "<title>Архитектура конвейера rulemma: от сырого запроса до Go, Python, CLI и WASM</title>",
+        f'<rect width="{W}" height="{H}" rx="14" fill="{t["bg"]}" stroke="{t["border"]}" stroke-width="1"/>',
+        # Header
+        f'<text x="28" y="34" font-family="{FONT}" font-size="17.5" font-weight="700" fill="{t["ink"]}">Архитектура конвейера rulemma</text>',
+        f'<text x="28" y="58" font-family="{FONT}" font-size="11.5" fill="{t["muted"]}">От сырого запроса к каноническому ключу, морфологии и склонению без внешних зависимостей и GC-пауз</text>',
+        f'<rect data-pill="1" x="724" y="15" width="212" height="26" rx="13" fill="{t["blue_soft"]}" stroke="{t["blue"]}" stroke-opacity="0.35"/>',
+        f'<text x="830" y="32" text-anchor="middle" font-family="{FONT}" font-size="11.5" font-weight="700" fill="{t["blue"]}">0 зависимостей · 0 GC pointers</text>',
+    ]
+
+    # 4 calm horizontal cards with arrows between them
+    cy, ch = 80, 152
+    cw = 204
+    gap = 32
+    xs = [24 + i * (cw + gap) for i in range(4)]
+
+    stages = [
+        (
+            "01 · ВХОД И ОЧИСТКА",
+            "Нормализация",
+            t["muted"],
+            t["pill_bg"],
+            [
+                ("Омоглифы RU/EN", "cм → см, intеl → intel"),
+                ("Токенизатор", "default или technical"),
+                ("Характеристики", "2,6 л.с. · 100×100 · б/у"),
+            ],
+        ),
+        (
+            "02 · ПОИСК ЛЕММЫ",
+            "Байтовая арена",
+            t["accent"],
+            t["accent_soft"],
+            [
+                ("1. overrides.tsv", "469 правил (приоритет)"),
+                ("2. compactStrMap", "214 196 форм · maphash"),
+                ("3. OOV fallback", "проверка по словарю"),
+            ],
+        ),
+        (
+            "03 · ГРАММАТИКА",
+            "Ленивые таблицы",
+            t["blue"],
+            t["blue_soft"],
+            [
+                ("adj_noun", "3 960 пар прил. → сущ."),
+                ("morph + омонимы", "127k форм + 11.9k разб."),
+                ("paradigms + OOV", "44.8k лемм · atomic"),
+            ],
+        ),
+        (
+            "04 · РЕЗУЛЬТАТ",
+            "Единое API",
+            t["green"],
+            t["green_soft"],
+            [
+                ("Ключи и дедуп", "Word · LemmaKey · SemKey"),
+                ("Морфология", "Analyze · PrepGoverns"),
+                ("Генерация", "InflectPhrase · SEOName"),
+            ],
+        ),
+    ]
+
+    for idx, (step_lbl, heading, col, soft, rows) in enumerate(stages):
+        x = xs[idx]
+        # Card shell
+        out.append(f'<rect x="{x}" y="{cy}" width="{cw}" height="{ch}" rx="11" fill="{t["card"]}" stroke="{t["border"]}" stroke-width="1"/>')
+        # Soft top strip
+        out.append(f'<rect x="{x+1}" y="{cy+1}" width="{cw-2}" height="32" rx="10" fill="{soft}"/>')
+        out.append(f'<rect x="{x+1}" y="{cy+22}" width="{cw-2}" height="11" fill="{soft}"/>')
+        out.append(f'<line x1="{x}" y1="{cy+33}" x2="{x+cw}" y2="{cy+33}" stroke="{t["border"]}" stroke-width="0.8"/>')
+        out.append(f'<text x="{x+12}" y="{cy+21}" font-family="{MONO}" font-size="10" font-weight="700" fill="{col}">{esc(step_lbl)}</text>')
+        out.append(f'<text x="{x+12}" y="{cy+52}" font-family="{FONT}" font-size="13" font-weight="700" fill="{t["ink"]}">{esc(heading)}</text>')
+
+        ry = cy + 72
+        for k, v in rows:
+            out.append(f'<circle cx="{x+16}" cy="{ry-3}" r="2.3" fill="{col}"/>')
+            out.append(f'<text x="{x+25}" y="{ry}" font-family="{FONT}" font-size="10.8" font-weight="600" fill="{t["ink"]}">{esc(k)}</text>')
+            out.append(f'<text x="{x+25}" y="{ry+13}" font-family="{MONO}" font-size="9.5" fill="{t["muted"]}">{esc(v)}</text>')
+            ry += 28
+
+        # Arrow to next card
+        if idx < 3:
+            ax1 = x + cw + 4
+            ax2 = xs[idx + 1] - 6
+            ay = cy + ch / 2.0
+            out.append(f'<line x1="{ax1}" y1="{ay:.1f}" x2="{ax2-4}" y2="{ay:.1f}" stroke="{t["ref_line"]}" stroke-width="1.6"/>')
+            out.append(f'<polygon points="{ax2},{ay:.1f} {ax2-7},{ay-4.5:.1f} {ax2-7},{ay+4.5:.1f}" fill="{t["ref_line"]}"/>')
+
+    # Bottom strip: 3 runtime targets
+    by, bh = 250, 48
+    targets = [
+        ("Go stdlib (нативно)", "59 мс старт · 15.6 МБ RSS · 3.6 мкс/запр", t["blue"]),
+        ("Python ctypes / CGO", "682k запр/с · 37.1 МБ RSS · без GIL", t["accent"]),
+        ("CLI & WebAssembly", "TSV до 1.6M/с · WASM 1.09 МБ gzip", t["green"]),
+    ]
+    tw = 294
+    tgap = 15
+    for i, (name, meta, col) in enumerate(targets):
+        tx = 24 + i * (tw + tgap)
+        out.append(f'<rect x="{tx}" y="{by}" width="{tw}" height="{bh}" rx="9" fill="{t["card"]}" stroke="{t["border"]}" stroke-width="1"/>')
+        out.append(f'<rect x="{tx}" y="{by+9}" width="3.5" height="{bh-18}" rx="2" fill="{col}"/>')
+        out.append(f'<text x="{tx+14}" y="{by+21}" font-family="{FONT}" font-size="11.5" font-weight="700" fill="{col}">{esc(name)}</text>')
+        out.append(f'<text x="{tx+14}" y="{by+38}" font-family="{MONO}" font-size="9.8" fill="{t["muted"]}">{esc(meta)}</text>')
+
+    out.append("</svg>")
+    return "\n".join(out) + "\n"
+
+
 def main() -> int:
     ASSETS.mkdir(parents=True, exist_ok=True)
     results = json.loads(RESULTS_PATH.read_text(encoding="utf-8"))
@@ -332,7 +446,10 @@ def main() -> int:
         (ASSETS / f"benchmark-{name}.svg").write_text(
             render_benchmark(name, palette, results), encoding="utf-8"
         )
-    print(f"[charts] Generated 4 Light/Dark SVG charts in {ASSETS}")
+        (ASSETS / f"pipeline-{name}.svg").write_text(
+            render_pipeline(name, palette), encoding="utf-8"
+        )
+    print(f"[charts] Generated 6 Light/Dark SVG charts in {ASSETS}")
     return 0
 
 

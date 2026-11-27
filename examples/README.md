@@ -1,8 +1,30 @@
 # Примеры использования `rulemma`
 
-Все примеры самодостаточны, не требуют сторонних зависимостей сверх `rulemma` (Go stdlib + Python stdlib) и автоматически проверяются в CI (`make test-examples`).
+В папке собраны два формата примеров:
 
-Перед запуском из корня репозитория выполните `make build`.
+1. **Jupyter-тетрадки с облачным HTTP API `rulemma.ru`** ([`notebooks/`](notebooks/README.md)) — запускаются в Google Colab или локальном Jupyter без установки Go и без сборки `librulemma.so`. Бесплатный API-ключ выпускается в личном кабинете [rulemma.ru/account/](https://rulemma.ru/account/) (базовые примеры работают и без ключа через песочницу `/v1/sandbox/test`).
+2. **Локальные примеры (`01..13`)** на Go, Python CGO и CLI — не требуют сети и сторонних зависимостей, автоматически проверяются в CI (`make test-examples`).
+
+---
+
+## Jupyter-тетрадки (HTTP API `https://rulemma.ru/v1`)
+
+- Регистрация и бесплатный API-ключ: [rulemma.ru/account/](https://rulemma.ru/account/)
+- Документация API и тарифы: [rulemma.ru/api/](https://rulemma.ru/api/) · [rulemma.ru/pricing/](https://rulemma.ru/pricing/) · [openapi.yaml](https://rulemma.ru/openapi.yaml)
+
+| Тетрадка | Методы API | Что показывает | Colab |
+|---|---|---|---|
+| [01 · Быстрый старт](notebooks/01_api_quickstart.ipynb) | `/health`, `/tariffs`, `/sandbox/test`, `/info`, `/usage`, `/homoglyphs` | Старт без ключа, авторизация, квота, омоглифы | [Открыть](https://colab.research.google.com/github/DimaKorshikov/rulemma/blob/main/examples/notebooks/01_api_quickstart.ipynb) |
+| [02 · Дедупликация и техпрофиль](notebooks/02_query_dedup_and_technical_keys.ipynb) | `/lemmatize` | Кластеризация по `semantic_key`, `technical`, `overrides` | [Открыть](https://colab.research.google.com/github/DimaKorshikov/rulemma/blob/main/examples/notebooks/02_query_dedup_and_technical_keys.ipynb) |
+| [03 · Морфология, склонение, SEO](notebooks/03_morphology_inflection_and_seo_titles.ipynb) | `/analyze`, `/inflect`, `/seoname` | Омонимы, OOV `inferred`, `prep_governs`, склонение, SEO | [Открыть](https://colab.research.google.com/github/DimaKorshikov/rulemma/blob/main/examples/notebooks/03_morphology_inflection_and_seo_titles.ipynb) |
+| [04 · Частоты и TF-IDF](notebooks/04_text_frequency_and_tfidf_api.ipynb) | `/text-stats`, `/lemmatize` | Частотный словарь лемм, стоп-слова, корпус TF-IDF | [Открыть](https://colab.research.google.com/github/DimaKorshikov/rulemma/blob/main/examples/notebooks/04_text_frequency_and_tfidf_api.ipynb) |
+| [05 · Батч CSV/TSV и ретраи](notebooks/05_batch_csv_pipeline_and_rate_limits.ipynb) | `/usage`, `/lemmatize` | Чанкинг по `max_batch`, ретраи `429`/`5xx`, контроль квоты | [Открыть](https://colab.research.google.com/github/DimaKorshikov/rulemma/blob/main/examples/notebooks/05_batch_csv_pipeline_and_rate_limits.ipynb) |
+
+---
+
+## Локальные примеры (`01..13`, без сети)
+
+Перед запуском локальных примеров из корня репозитория выполните `make build`.
 
 | Пример | Язык | Что показывает |
 |---|---|---|

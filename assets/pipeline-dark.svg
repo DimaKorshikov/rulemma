@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 318" width="960" height="318" role="img" aria-label="Архитектура конвейера rulemma">
+<title>Архитектура конвейера rulemma: от сырого запроса до Go, Python, CLI и WASM</title>
+<rect width="960" height="318" rx="14" fill="#14171A" stroke="#2F353B" stroke-width="1"/>
+<text x="28" y="34" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="17.5" font-weight="700" fill="#E7E3DA">Архитектура конвейера rulemma</text>
+<text x="28" y="58" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#969B97">От сырого запроса к каноническому ключу, морфологии и склонению без внешних зависимостей и GC-пауз</text>
+<rect data-pill="1" x="724" y="15" width="212" height="26" rx="13" fill="#1B2A35" stroke="#74A3C2" stroke-opacity="0.35"/>
+<text x="830" y="32" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" fill="#74A3C2">0 зависимостей · 0 GC pointers</text>
+<rect x="24" y="80" width="204" height="152" rx="11" fill="#1B1F23" stroke="#2F353B" stroke-width="1"/>
+<rect x="25" y="81" width="202" height="32" rx="10" fill="#24292E"/>
+<rect x="25" y="102" width="202" height="11" fill="#24292E"/>
+<line x1="24" y1="113" x2="228" y2="113" stroke="#2F353B" stroke-width="0.8"/>
+<text x="36" y="101" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" font-weight="700" fill="#969B97">01 · ВХОД И ОЧИСТКА</text>
+<text x="36" y="132" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#E7E3DA">Нормализация</text>
+<circle cx="40" cy="149" r="2.3" fill="#969B97"/>
+<text x="49" y="152" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.8" font-weight="600" fill="#E7E3DA">Омоглифы RU/EN</text>
+<text x="49" y="165" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#969B97">cм → см, intеl → intel</text>
+<circle cx="40" cy="177" r="2.3" fill="#969B97"/>
+<text x="49" y="180" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.8" font-weight="600" fill="#E7E3DA">Токенизатор</text>
+<text x="49" y="193" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#969B97">default или technical</text>
+<circle cx="40" cy="205" r="2.3" fill="#969B97"/>
+<text x="49" y="208" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.8" font-weight="600" fill="#E7E3DA">Характеристики</text>
+<text x="49" y="221" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#969B97">2,6 л.с. · 100×100 · б/у</text>
+<line x1="232" y1="156.0" x2="250" y2="156.0" stroke="#8E9490" stroke-width="1.6"/>
+<polygon points="254,156.0 247,151.5 247,160.5" fill="#8E9490"/>
+<rect x="260" y="80" width="204" height="152" rx="11" fill="#1B1F23" stroke="#2F353B" stroke-width="1"/>
+<rect x="261" y="81" width="202" height="32" rx="10" fill="#332119"/>
+<rect x="261" y="102" width="202" height="11" fill="#332119"/>
+<line x1="260" y1="113" x2="464" y2="113" stroke="#2F353B" stroke-width="0.8"/>
+<text x="272" y="101" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" font-weight="700" fill="#DF7E58">02 · ПОИСК ЛЕММЫ</text>
+<text x="272" y="132" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#E7E3DA">Байтовая арена</text>
+<circle cx="276" cy="149" r="2.3" fill="#DF7E58"/>
+<text x="285" y="152" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.8" font-weight="600" fill="#E7E3DA">1. overrides.tsv</text>
+<text x="285" y="165" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#969B97">469 правил (приоритет)</text>
+<circle cx="276" cy="177" r="2.3" fill="#DF7E58"/>
+<text x="285" y="180" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.8" font-weight="600" fill="#E7E3DA">2. compactStrMap</text>
+<text x="285" y="193" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#969B97">214 196 форм · maphash</text>
+<circle cx="276" cy="205" r="2.3" fill="#DF7E58"/>
+<text x="285" y="208" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.8" font-weight="600" fill="#E7E3DA">3. OOV fallback</text>
+<text x="285" y="221" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#969B97">проверка по словарю</text>
+<line x1="468" y1="156.0" x2="486" y2="156.0" stroke="#8E9490" stroke-width="1.6"/>
+<polygon points="490,156.0 483,151.5 483,160.5" fill="#8E9490"/>
+<rect x="496" y="80" width="204" height="152" rx="11" fill="#1B1F23" stroke="#2F353B" stroke-width="1"/>
+<rect x="497" y="81" width="202" height="32" rx="10" fill="#1B2A35"/>
+<rect x="497" y="102" width="202" height="11" fill="#1B2A35"/>
+<line x1="496" y1="113" x2="700" y2="113" stroke="#2F353B" stroke-width="0.8"/>
+<text x="508" y="101" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" font-weight="700" fill="#74A3C2">03 · ГРАММАТИКА</text>
+<text x="508" y="132" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#E7E3DA">Ленивые таблицы</text>
+<circle cx="512" cy="149" r="2.3" fill="#74A3C2"/>
+<text x="521" y="152" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.8" font-weight="600" fill="#E7E3DA">adj_noun</text>
+<text x="521" y="165" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#969B97">3 960 пар прил. → сущ.</text>
+<circle cx="512" cy="177" r="2.3" fill="#74A3C2"/>
+<text x="521" y="180" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.8" font-weight="600" fill="#E7E3DA">morph + омонимы</text>
+<text x="521" y="193" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#969B97">127k форм + 11.9k разб.</text>
+<circle cx="512" cy="205" r="2.3" fill="#74A3C2"/>
+<text x="521" y="208" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.8" font-weight="600" fill="#E7E3DA">paradigms + OOV</text>
+<text x="521" y="221" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#969B97">44.8k лемм · atomic</text>
+<line x1="704" y1="156.0" x2="722" y2="156.0" stroke="#8E9490" stroke-width="1.6"/>
+<polygon points="726,156.0 719,151.5 719,160.5" fill="#8E9490"/>
+<rect x="732" y="80" width="204" height="152" rx="11" fill="#1B1F23" stroke="#2F353B" stroke-width="1"/>
+<rect x="733" y="81" width="202" height="32" rx="10" fill="#192B22"/>
+<rect x="733" y="102" width="202" height="11" fill="#192B22"/>
+<line x1="732" y1="113" x2="936" y2="113" stroke="#2F353B" stroke-width="0.8"/>
+<text x="744" y="101" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="10" font-weight="700" fill="#77B390">04 · РЕЗУЛЬТАТ</text>
+<text x="744" y="132" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#E7E3DA">Единое API</text>
+<circle cx="748" cy="149" r="2.3" fill="#77B390"/>
+<text x="757" y="152" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.8" font-weight="600" fill="#E7E3DA">Ключи и дедуп</text>
+<text x="757" y="165" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#969B97">Word · LemmaKey · SemKey</text>
+<circle cx="748" cy="177" r="2.3" fill="#77B390"/>
+<text x="757" y="180" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.8" font-weight="600" fill="#E7E3DA">Морфология</text>
+<text x="757" y="193" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#969B97">Analyze · PrepGoverns</text>
+<circle cx="748" cy="205" r="2.3" fill="#77B390"/>
+<text x="757" y="208" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.8" font-weight="600" fill="#E7E3DA">Генерация</text>
+<text x="757" y="221" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.5" fill="#969B97">InflectPhrase · SEOName</text>
+<rect x="24" y="250" width="294" height="48" rx="9" fill="#1B1F23" stroke="#2F353B" stroke-width="1"/>
+<rect x="24" y="259" width="3.5" height="30" rx="2" fill="#74A3C2"/>
+<text x="38" y="271" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" fill="#74A3C2">Go stdlib (нативно)</text>
+<text x="38" y="288" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.8" fill="#969B97">59 мс старт · 15.6 МБ RSS · 3.6 мкс/запр</text>
+<rect x="333" y="250" width="294" height="48" rx="9" fill="#1B1F23" stroke="#2F353B" stroke-width="1"/>
+<rect x="333" y="259" width="3.5" height="30" rx="2" fill="#DF7E58"/>
+<text x="347" y="271" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" fill="#DF7E58">Python ctypes / CGO</text>
+<text x="347" y="288" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.8" fill="#969B97">682k запр/с · 37.1 МБ RSS · без GIL</text>
+<rect x="642" y="250" width="294" height="48" rx="9" fill="#1B1F23" stroke="#2F353B" stroke-width="1"/>
+<rect x="642" y="259" width="3.5" height="30" rx="2" fill="#77B390"/>
+<text x="656" y="271" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" fill="#77B390">CLI &amp; WebAssembly</text>
+<text x="656" y="288" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="9.8" fill="#969B97">TSV до 1.6M/с · WASM 1.09 МБ gzip</text>
+</svg>
