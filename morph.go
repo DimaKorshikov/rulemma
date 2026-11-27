@@ -1,13 +1,13 @@
 package rulemma
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
-	"io"
 	"io/fs"
 	"strconv"
 	"strings"
 	"unicode/utf8"
-	"unsafe"
 )
 
 // Compact 32-bit grammatical tag bitmask layout (matches tools/build_dicts.py).
@@ -151,10 +151,15 @@ func decodeCases6(mask uint8) []string {
 	return out
 }
 
-func loadMorphFS(fsys fs.FS) (map[string]uint32, error) {
+type morphStore struct {
+	morph     *compactU32Map
+	altLemmas *compactStrMap
+}
+
+func loadMorphFS(fsys fs.FS) (*compactU32Map, error) {
 	name := firstExistingFS(fsys, "morph.tsv.gz", "morph.tsv")
 	if name == "" {
-		return map[string]uint32{}, nil
+		return nil, nil
 	}
 	rc, err := openMaybeGzipFS(fsys, name)
 	if err != nil {
@@ -162,50 +167,35 @@ func loadMorphFS(fsys fs.FS) (map[string]uint32, error) {
 	}
 	defer rc.Close()
 
-	raw, err := io.ReadAll(rc)
-	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", name, err)
-	}
-	if len(raw) == 0 {
-		return map[string]uint32{}, nil
-	}
-	data := unsafe.String(unsafe.SliceData(raw), len(raw))
-	out := make(map[string]uint32, 130000)
-
-	start := 0
-	for start < len(data) {
-		nl := strings.IndexByte(data[start:], '\n')
-		var line string
-		if nl < 0 {
-			line = data[start:]
-			start = len(data)
-		} else {
-			line = data[start : start+nl]
-			start += nl + 1
-		}
+	out := newCompactU32Map(128000, 2100*1024)
+	sc := bufio.NewScanner(rc)
+	sc.Buffer(make([]byte, 64*1024), 1024*1024)
+	for sc.Scan() {
+		line := trimCR(sc.Bytes())
 		if len(line) == 0 || line[0] == '#' {
 			continue
 		}
-		if line[len(line)-1] == '\r' {
-			line = line[:len(line)-1]
-		}
-		tab := strings.IndexByte(line, '\t')
+		tab := bytes.IndexByte(line, '\t')
 		if tab <= 0 || tab+1 >= len(line) {
 			continue
 		}
-		v, err := strconv.ParseUint(line[tab+1:], 16, 32)
-		if err != nil {
+		v, ok := parseHexUint32Bytes(line[tab+1:])
+		if !ok {
 			continue
 		}
-		out[line[:tab]] = uint32(v)
+		out.putBytes(line[:tab], v)
 	}
+	if err := sc.Err(); err != nil {
+		return nil, fmt.Errorf("scan %s: %w", name, err)
+	}
+	out.freeze()
 	return out, nil
 }
 
-func loadAltLemmasFS(fsys fs.FS) (map[string]string, error) {
+func loadAltLemmasFS(fsys fs.FS) (*compactStrMap, error) {
 	name := firstExistingFS(fsys, "alt_lemmas.tsv.gz", "alt_lemmas.tsv")
 	if name == "" {
-		return map[string]string{}, nil
+		return nil, nil
 	}
 	rc, err := openMaybeGzipFS(fsys, name)
 	if err != nil {
@@ -213,39 +203,24 @@ func loadAltLemmasFS(fsys fs.FS) (map[string]string, error) {
 	}
 	defer rc.Close()
 
-	raw, err := io.ReadAll(rc)
-	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", name, err)
-	}
-	if len(raw) == 0 {
-		return map[string]string{}, nil
-	}
-	data := unsafe.String(unsafe.SliceData(raw), len(raw))
-	out := make(map[string]string, 12000)
-
-	start := 0
-	for start < len(data) {
-		nl := strings.IndexByte(data[start:], '\n')
-		var line string
-		if nl < 0 {
-			line = data[start:]
-			start = len(data)
-		} else {
-			line = data[start : start+nl]
-			start += nl + 1
-		}
+	out := newCompactStrMap(12000, 720*1024)
+	sc := bufio.NewScanner(rc)
+	sc.Buffer(make([]byte, 64*1024), 1024*1024)
+	for sc.Scan() {
+		line := trimCR(sc.Bytes())
 		if len(line) == 0 || line[0] == '#' {
 			continue
 		}
-		if line[len(line)-1] == '\r' {
-			line = line[:len(line)-1]
-		}
-		tab := strings.IndexByte(line, '\t')
+		tab := bytes.IndexByte(line, '\t')
 		if tab <= 0 || tab+1 >= len(line) {
 			continue
 		}
-		out[line[:tab]] = line[tab+1:]
+		out.putBytes(line[:tab], line[tab+1:], false)
 	}
+	if err := sc.Err(); err != nil {
+		return nil, fmt.Errorf("scan %s: %w", name, err)
+	}
+	out.freeze()
 	return out, nil
 }
 
@@ -278,14 +253,15 @@ func parseAltCandidates(raw string) []Candidate {
 
 func (l *Lemmatizer) lookupMorphBits(w string) (uint32, bool) {
 	l.ensureMorph()
-	if len(l.morph) == 0 {
+	ms := l.morphStore.Load()
+	if ms == nil || ms.morph == nil || ms.morph.Len() == 0 {
 		return 0, false
 	}
-	if bits, ok := l.morph[w]; ok {
+	if bits, ok := ms.morph.Get(w); ok {
 		return bits, true
 	}
 	if wn := normYo(w); wn != w {
-		if bits, ok := l.morph[wn]; ok {
+		if bits, ok := ms.morph.Get(wn); ok {
 			return bits, true
 		}
 	}
@@ -344,11 +320,11 @@ func (l *Lemmatizer) Analyze(word string) WordInfo {
 	info.HasNomnNoun = bits&morphFlagHasNomnNoun != 0
 
 	var rawAlt string
-	if len(l.altLemmas) > 0 {
-		if s, found := l.altLemmas[w]; found {
+	if ms := l.morphStore.Load(); ms != nil && ms.altLemmas != nil && ms.altLemmas.Len() > 0 {
+		if s, found := ms.altLemmas.Get(w); found {
 			rawAlt = s
 		} else if wn := normYo(w); wn != w {
-			rawAlt = l.altLemmas[wn]
+			rawAlt, _ = ms.altLemmas.Get(wn)
 		}
 	}
 	if rawAlt != "" {

@@ -885,7 +885,7 @@ func (l *Lemmatizer) KeyWithOptions(text string, opts KeyOptions) string {
 				skipFold = true
 			}
 			if !skipFold {
-				if noun, ok := l.adjToNoun[lm]; ok {
+				if noun, ok := l.lookupAdjToNoun(lm); ok {
 					// If target noun OR source lemma is protected in KeepWords, do not collapse head/modifier
 					if _, keepSrc := opts.KeepWords[lm]; keepSrc {
 						skipFold = true

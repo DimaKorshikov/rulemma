@@ -2,6 +2,7 @@ package rulemma
 
 import (
 	"bufio"
+	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
@@ -76,7 +77,8 @@ func openMaybeGzipFS(fsys fs.FS, name string) (io.ReadCloser, error) {
 
 func wrapMaybeGzip(f io.ReadCloser, name string) (io.ReadCloser, error) {
 	if strings.HasSuffix(name, ".gz") {
-		gz, err := gzip.NewReader(f)
+		br := bufio.NewReaderSize(f, 32*1024)
+		gz, err := gzip.NewReader(br)
 		if err != nil {
 			f.Close()
 			return nil, err
@@ -110,7 +112,14 @@ func firstExistingFS(fsys fs.FS, names ...string) string {
 	return ""
 }
 
-func loadLemmasFS(fsys fs.FS, label string) (map[string]string, error) {
+func trimCR(b []byte) []byte {
+	if len(b) > 0 && b[len(b)-1] == '\r' {
+		return b[:len(b)-1]
+	}
+	return b
+}
+
+func loadLemmasFS(fsys fs.FS, label string) (*compactStrMap, error) {
 	name := firstExistingFS(fsys, "lemmas.tsv.gz", "lemmas.tsv", "lemmas.json.gz", "lemmas.json")
 	if name == "" {
 		return nil, fmt.Errorf("lemmas dictionary not found in %s", label)
@@ -126,31 +135,34 @@ func loadLemmasFS(fsys fs.FS, label string) (map[string]string, error) {
 		if err := json.NewDecoder(rc).Decode(&m); err != nil {
 			return nil, fmt.Errorf("decode %s: %w", name, err)
 		}
-		out := make(map[string]string, len(m))
+		out := newCompactStrMap(len(m), len(m)*20+64)
 		for k, v := range m {
-			out[strings.ToLower(k)] = normYo(strings.ToLower(v))
+			out.putString(strings.ToLower(k), normYo(strings.ToLower(v)), true)
 		}
 		return out, nil
 	}
 
-	out := make(map[string]string, 215000)
+	out := newCompactStrMap(215000, 4200*1024)
 	sc := bufio.NewScanner(rc)
 	sc.Buffer(make([]byte, 64*1024), 1024*1024)
+	var scratchK, scratchV []byte
 	for sc.Scan() {
-		line := sc.Text()
-		if line == "" || line[0] == '#' {
+		line := trimCR(sc.Bytes())
+		if len(line) == 0 || line[0] == '#' {
 			continue
 		}
-		tab := strings.IndexByte(line, '\t')
+		tab := bytes.IndexByte(line, '\t')
 		if tab <= 0 {
 			continue
 		}
-		w := strings.ToLower(line[:tab])
+		rawK := line[:tab]
 		rest := line[tab+1:]
-		if tab2 := strings.IndexByte(rest, '\t'); tab2 >= 0 {
+		if tab2 := bytes.IndexByte(rest, '\t'); tab2 >= 0 {
 			rest = rest[:tab2]
 		}
-		out[w] = normYo(strings.ToLower(rest))
+		w := normalizeLowerBytes(rawK, scratchK)
+		l := normalizeLowerNoYoBytes(rest, scratchV)
+		out.putBytes(w, l, true)
 	}
 	if err := sc.Err(); err != nil {
 		return nil, fmt.Errorf("scan %s: %w", name, err)
@@ -158,7 +170,7 @@ func loadLemmasFS(fsys fs.FS, label string) (map[string]string, error) {
 	return out, nil
 }
 
-func applyOverridesReader(lemmas map[string]string, overrides map[string]struct{}, r io.Reader) (int, error) {
+func applyOverridesReader(lemmas *compactStrMap, overrides map[string]struct{}, r io.Reader) (int, error) {
 	n := 0
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 32*1024), 512*1024)
@@ -176,12 +188,12 @@ func applyOverridesReader(lemmas map[string]string, overrides map[string]struct{
 		if w == "" || l == "" {
 			continue
 		}
-		lemmas[w] = l
+		lemmas.putString(w, l, false)
 		if overrides != nil {
 			overrides[w] = struct{}{}
 		}
 		if wn := normYo(w); wn != w {
-			lemmas[wn] = l
+			lemmas.putString(wn, l, false)
 			if overrides != nil {
 				overrides[wn] = struct{}{}
 			}
@@ -191,7 +203,7 @@ func applyOverridesReader(lemmas map[string]string, overrides map[string]struct{
 	return n, sc.Err()
 }
 
-func applyOverrides(lemmas map[string]string, overrides map[string]struct{}, path string) (int, error) {
+func applyOverrides(lemmas *compactStrMap, overrides map[string]struct{}, path string) (int, error) {
 	rc, err := openMaybeGzip(path)
 	if err != nil {
 		return 0, err
@@ -200,7 +212,7 @@ func applyOverrides(lemmas map[string]string, overrides map[string]struct{}, pat
 	return applyOverridesReader(lemmas, overrides, rc)
 }
 
-func applyOverridesFS(lemmas map[string]string, overrides map[string]struct{}, fsys fs.FS, name string) (int, error) {
+func applyOverridesFS(lemmas *compactStrMap, overrides map[string]struct{}, fsys fs.FS, name string) (int, error) {
 	rc, err := openMaybeGzipFS(fsys, name)
 	if err != nil {
 		return 0, err
@@ -209,10 +221,10 @@ func applyOverridesFS(lemmas map[string]string, overrides map[string]struct{}, f
 	return applyOverridesReader(lemmas, overrides, rc)
 }
 
-func loadAdjFormsFS(fsys fs.FS) (map[string]string, error) {
+func loadAdjFormsFS(fsys fs.FS) (*adjFormsTable, error) {
 	name := firstExistingFS(fsys, "adj_forms.tsv.gz", "adj_forms.tsv", "adj_forms.json.gz", "adj_forms.json")
 	if name == "" {
-		return map[string]string{}, nil
+		return nil, nil
 	}
 	rc, err := openMaybeGzipFS(fsys, name)
 	if err != nil {
@@ -225,24 +237,61 @@ func loadAdjFormsFS(fsys fs.FS) (map[string]string, error) {
 		if err := json.NewDecoder(rc).Decode(&m); err != nil {
 			return nil, fmt.Errorf("decode %s: %w", name, err)
 		}
-		return m, nil
+		out := newAdjFormsTable(len(m)/4+16, len(m)*24+64)
+		for k, v := range m {
+			out.putComposite([]byte(k), []byte(v))
+		}
+		out.freeze()
+		return out, nil
 	}
 
-	out := make(map[string]string, 75000)
+	out := newAdjFormsTable(19000, 1800*1024)
 	sc := bufio.NewScanner(rc)
 	sc.Buffer(make([]byte, 64*1024), 1024*1024)
 	for sc.Scan() {
-		line := sc.Text()
-		if line == "" || line[0] == '#' {
+		line := trimCR(sc.Bytes())
+		if len(line) == 0 || line[0] == '#' {
 			continue
 		}
-		tab := strings.IndexByte(line, '\t')
-		if tab <= 0 {
+		tab := bytes.IndexByte(line, '\t')
+		if tab <= 0 || tab+1 >= len(line) {
 			continue
 		}
-		out[line[:tab]] = line[tab+1:]
+		out.putComposite(line[:tab], line[tab+1:])
 	}
-	return out, sc.Err()
+	if err := sc.Err(); err != nil {
+		return nil, err
+	}
+	out.freeze()
+	return out, nil
+}
+
+func internGenderBytes(b []byte) string {
+	switch string(b) {
+	case "masc":
+		return "masc"
+	case "femn":
+		return "femn"
+	case "neut":
+		return "neut"
+	case "":
+		return ""
+	default:
+		return string(b)
+	}
+}
+
+func internNumberBytes(b []byte) string {
+	switch string(b) {
+	case "sing":
+		return "sing"
+	case "plur":
+		return "plur"
+	case "":
+		return ""
+	default:
+		return string(b)
+	}
 }
 
 func loadTypesFS(fsys fs.FS) (map[string]GramInfo, error) {
@@ -268,25 +317,41 @@ func loadTypesFS(fsys fs.FS) (map[string]GramInfo, error) {
 		return out, nil
 	}
 
-	out := make(map[string]GramInfo, 5000)
+	out := make(map[string]GramInfo, 4800)
 	sc := bufio.NewScanner(rc)
+	sc.Buffer(make([]byte, 32*1024), 512*1024)
+	var scratch []byte
 	for sc.Scan() {
-		line := sc.Text()
-		if line == "" || line[0] == '#' {
+		line := trimCR(sc.Bytes())
+		if len(line) == 0 || line[0] == '#' {
 			continue
 		}
-		parts := strings.Split(line, "\t")
-		if len(parts) >= 3 {
-			out[strings.ToLower(parts[0])] = GramInfo{Gender: parts[1], Number: parts[2]}
+		t1 := bytes.IndexByte(line, '\t')
+		if t1 <= 0 || t1+1 >= len(line) {
+			continue
+		}
+		rest := line[t1+1:]
+		t2 := bytes.IndexByte(rest, '\t')
+		if t2 < 0 {
+			continue
+		}
+		numB := rest[t2+1:]
+		if t3 := bytes.IndexByte(numB, '\t'); t3 >= 0 {
+			numB = numB[:t3]
+		}
+		k := string(normalizeLowerBytes(line[:t1], scratch))
+		out[k] = GramInfo{
+			Gender: internGenderBytes(rest[:t2]),
+			Number: internNumberBytes(numB),
 		}
 	}
 	return out, sc.Err()
 }
 
-func loadAdjNounFS(fsys fs.FS) (map[string]string, error) {
+func loadAdjNounFS(fsys fs.FS) (*compactStrMap, error) {
 	name := firstExistingFS(fsys, "adj_noun.tsv.gz", "adj_noun.tsv")
 	if name == "" {
-		return map[string]string{}, nil
+		return nil, nil
 	}
 	rc, err := openMaybeGzipFS(fsys, name)
 	if err != nil {
@@ -294,22 +359,67 @@ func loadAdjNounFS(fsys fs.FS) (map[string]string, error) {
 	}
 	defer rc.Close()
 
-	out := make(map[string]string, 4500)
+	out := newCompactStrMap(4100, 150*1024)
 	sc := bufio.NewScanner(rc)
+	sc.Buffer(make([]byte, 32*1024), 512*1024)
+	var scratchK, scratchV []byte
 	for sc.Scan() {
-		line := sc.Text()
-		if line == "" || line[0] == '#' {
+		line := trimCR(sc.Bytes())
+		if len(line) == 0 || line[0] == '#' {
 			continue
 		}
-		tab := strings.IndexByte(line, '\t')
+		tab := bytes.IndexByte(line, '\t')
 		if tab <= 0 {
 			continue
 		}
-		adj := normYo(strings.ToLower(strings.TrimSpace(line[:tab])))
-		noun := normYo(strings.ToLower(strings.TrimSpace(line[tab+1:])))
-		if adj != "" && noun != "" {
-			out[adj] = noun
+		adj := normalizeLowerNoYoBytes(bytes.TrimSpace(line[:tab]), scratchK)
+		noun := normalizeLowerNoYoBytes(bytes.TrimSpace(line[tab+1:]), scratchV)
+		if len(adj) > 0 && len(noun) > 0 {
+			out.putBytes(adj, noun, false)
 		}
 	}
-	return out, sc.Err()
+	if err := sc.Err(); err != nil {
+		return nil, err
+	}
+	out.freeze()
+	return out, nil
+}
+
+func parseHexUint32Bytes(b []byte) (uint32, bool) {
+	if len(b) == 0 || len(b) > 8 {
+		return 0, false
+	}
+	var v uint32
+	for _, c := range b {
+		var d uint32
+		switch {
+		case c >= '0' && c <= '9':
+			d = uint32(c - '0')
+		case c >= 'a' && c <= 'f':
+			d = uint32(c-'a') + 10
+		case c >= 'A' && c <= 'F':
+			d = uint32(c-'A') + 10
+		default:
+			return 0, false
+		}
+		v = (v << 4) | d
+	}
+	return v, true
+}
+
+func parseDecUint16Bytes(b []byte) (uint16, bool) {
+	if len(b) == 0 {
+		return 0, false
+	}
+	var v uint32
+	for _, c := range b {
+		if c < '0' || c > '9' {
+			return 0, false
+		}
+		v = v*10 + uint32(c-'0')
+		if v > 65535 {
+			return 0, false
+		}
+	}
+	return uint16(v), true
 }

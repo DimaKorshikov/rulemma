@@ -1,14 +1,14 @@
 package rulemma
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
-	"io"
 	"io/fs"
 	"math"
 	"strconv"
 	"strings"
 	"unicode"
-	"unsafe"
 )
 
 // Paradigm word flags (must match tools/build_dicts.py).
@@ -38,10 +38,42 @@ type paradigmRef struct {
 	flags uint16
 }
 
-func loadParadigmsFS(fsys fs.FS) ([]paradigmDef, map[string]paradigmRef, error) {
+type paradigmStore struct {
+	defs  []paradigmDef
+	words *compactU32Map
+}
+
+func packParadigmRef(pid, flags uint16) uint32 {
+	return uint32(pid) | (uint32(flags) << 16)
+}
+
+func unpackParadigmRef(v uint32) paradigmRef {
+	return paradigmRef{
+		pid:   uint16(v & 0xFFFF),
+		flags: uint16(v >> 16),
+	}
+}
+
+func (ps *paradigmStore) getWord(lemma string) (paradigmRef, bool) {
+	if ps == nil || ps.words == nil {
+		return paradigmRef{}, false
+	}
+	v, ok := ps.words.Get(lemma)
+	if !ok {
+		return paradigmRef{}, false
+	}
+	return unpackParadigmRef(v), true
+}
+
+func (l *Lemmatizer) getParadigmStore() *paradigmStore {
+	l.ensureParadigms()
+	return l.paradigmStore.Load()
+}
+
+func loadParadigmsFS(fsys fs.FS) ([]paradigmDef, *compactU32Map, error) {
 	name := firstExistingFS(fsys, "paradigms.tsv.gz", "paradigms.tsv")
 	if name == "" {
-		return nil, map[string]paradigmRef{}, nil
+		return nil, nil, nil
 	}
 	rc, err := openMaybeGzipFS(fsys, name)
 	if err != nil {
@@ -49,40 +81,21 @@ func loadParadigmsFS(fsys fs.FS) ([]paradigmDef, map[string]paradigmRef, error) 
 	}
 	defer rc.Close()
 
-	raw, err := io.ReadAll(rc)
-	if err != nil {
-		return nil, nil, fmt.Errorf("read %s: %w", name, err)
-	}
-	if len(raw) == 0 {
-		return nil, map[string]paradigmRef{}, nil
-	}
-	data := unsafe.String(unsafe.SliceData(raw), len(raw))
-
 	// Index 0 is reserved for Fixd / indeclinable words.
 	defs := make([]paradigmDef, 1, 400)
-	words := make(map[string]paradigmRef, 45000)
+	words := newCompactU32Map(45000, 750*1024)
 
-	start := 0
-	for start < len(data) {
-		nl := strings.IndexByte(data[start:], '\n')
-		var line string
-		if nl < 0 {
-			line = data[start:]
-			start = len(data)
-		} else {
-			line = data[start : start+nl]
-			start += nl + 1
-		}
+	sc := bufio.NewScanner(rc)
+	sc.Buffer(make([]byte, 64*1024), 1024*1024)
+	for sc.Scan() {
+		line := trimCR(sc.Bytes())
 		if len(line) < 3 || line[0] == '#' {
 			continue
-		}
-		if line[len(line)-1] == '\r' {
-			line = line[:len(line)-1]
 		}
 		switch line[0] {
 		case 'P':
 			// P\t<pid>\t<kind>\t<strip>\t<endings_csv>
-			parts := strings.SplitN(line, "\t", 5)
+			parts := strings.SplitN(string(line), "\t", 5)
 			if len(parts) != 5 {
 				continue
 			}
@@ -103,18 +116,32 @@ func loadParadigmsFS(fsys fs.FS) ([]paradigmDef, map[string]paradigmRef, error) 
 			}
 		case 'W':
 			// W\t<lemma>\t<pid>\t<flags_hex>
-			parts := strings.SplitN(line, "\t", 4)
-			if len(parts) != 4 {
+			if line[1] != '\t' {
 				continue
 			}
-			pid, err1 := strconv.ParseUint(parts[2], 10, 16)
-			fl, err2 := strconv.ParseUint(parts[3], 16, 16)
-			if err1 != nil || err2 != nil {
+			rest := line[2:]
+			t1 := bytes.IndexByte(rest, '\t')
+			if t1 <= 0 || t1+1 >= len(rest) {
 				continue
 			}
-			words[parts[1]] = paradigmRef{pid: uint16(pid), flags: uint16(fl)}
+			lemma := rest[:t1]
+			rest2 := rest[t1+1:]
+			t2 := bytes.IndexByte(rest2, '\t')
+			if t2 <= 0 || t2+1 >= len(rest2) {
+				continue
+			}
+			pid, ok1 := parseDecUint16Bytes(rest2[:t2])
+			fl32, ok2 := parseHexUint32Bytes(rest2[t2+1:])
+			if !ok1 || !ok2 || fl32 > 0xFFFF {
+				continue
+			}
+			words.putBytes(lemma, packParadigmRef(pid, uint16(fl32)))
 		}
 	}
+	if err := sc.Err(); err != nil {
+		return nil, nil, fmt.Errorf("scan %s: %w", name, err)
+	}
+	words.freeze()
 	return defs, words, nil
 }
 
@@ -229,8 +256,8 @@ func (l *Lemmatizer) Inflect(word, targetCase, targetNumber string) (string, boo
 	if trimmed == "" || !isPureCyrillicWord(trimmed) {
 		return trimmed, false
 	}
-	l.ensureParadigms()
-	if len(l.paradigmWords) == 0 {
+	ps := l.getParadigmStore()
+	if ps == nil || ps.words.Len() == 0 {
 		return trimmed, false
 	}
 	caseIdx, ok := parseCaseIndex(targetCase)
@@ -241,17 +268,17 @@ func (l *Lemmatizer) Inflect(word, targetCase, targetNumber string) (string, boo
 	low := normYo(strings.ToLower(trimmed))
 	lm := l.Word(low)
 
-	ref, found := l.paradigmWords[lm]
+	ref, found := ps.getWord(lm)
 	if !found {
 		return trimmed, false
 	}
 	if ref.flags&pfFixd != 0 {
 		return trimmed, true
 	}
-	if int(ref.pid) >= len(l.paradigms) || ref.pid == 0 {
+	if int(ref.pid) >= len(ps.defs) || ref.pid == 0 {
 		return trimmed, false
 	}
-	def := l.paradigms[ref.pid]
+	def := ps.defs[ref.pid]
 
 	if def.kind == 'N' {
 		effNum := numWant
@@ -318,8 +345,8 @@ func (l *Lemmatizer) InflectAdj(adj, targetCase, gender, number string, animate 
 	if trimmed == "" || !isPureCyrillicWord(trimmed) {
 		return trimmed, false
 	}
-	l.ensureParadigms()
-	if len(l.paradigmWords) == 0 {
+	ps := l.getParadigmStore()
+	if ps == nil || ps.words.Len() == 0 {
 		return trimmed, false
 	}
 	caseIdx, ok := parseCaseIndex(targetCase)
@@ -329,17 +356,17 @@ func (l *Lemmatizer) InflectAdj(adj, targetCase, gender, number string, animate 
 	low := normYo(strings.ToLower(trimmed))
 	lm := l.Word(low)
 
-	ref, found := l.paradigmWords[lm]
+	ref, found := ps.getWord(lm)
 	if !found || ref.flags&pfKindMask != pfKindAdj {
 		return trimmed, false
 	}
 	if ref.flags&pfFixd != 0 {
 		return trimmed, true
 	}
-	if int(ref.pid) >= len(l.paradigms) || ref.pid == 0 {
+	if int(ref.pid) >= len(ps.defs) || ref.pid == 0 {
 		return trimmed, false
 	}
-	def := l.paradigms[ref.pid]
+	def := ps.defs[ref.pid]
 	if def.kind != 'A' {
 		return trimmed, false
 	}
@@ -412,8 +439,8 @@ func (l *Lemmatizer) InflectPhrase(phrase, targetCase, targetNumber string) (str
 	if _, ok := parseCaseIndex(targetCase); !ok {
 		return phrase, false
 	}
-	l.ensureParadigms()
-	if len(l.paradigmWords) == 0 {
+	ps := l.getParadigmStore()
+	if ps == nil || ps.words.Len() == 0 {
 		return phrase, false
 	}
 
@@ -450,7 +477,7 @@ func (l *Lemmatizer) InflectPhrase(phrase, targetCase, targetNumber string) (str
 			continue
 		}
 		lm := l.Word(low)
-		ref, hasP := l.paradigmWords[lm]
+		ref, hasP := ps.getWord(lm)
 		m := tokMeta{
 			orig:  f,
 			low:   low,
@@ -540,20 +567,20 @@ func (l *Lemmatizer) AllForms(word string) []string {
 	if trimmed == "" || !isPureCyrillicWord(trimmed) {
 		return nil
 	}
-	l.ensureParadigms()
-	if len(l.paradigmWords) == 0 {
+	ps := l.getParadigmStore()
+	if ps == nil || ps.words.Len() == 0 {
 		return nil
 	}
 	low := normYo(strings.ToLower(trimmed))
 	lm := l.Word(low)
-	ref, found := l.paradigmWords[lm]
+	ref, found := ps.getWord(lm)
 	if !found {
 		return []string{lm}
 	}
-	if ref.flags&pfFixd != 0 || ref.pid == 0 || int(ref.pid) >= len(l.paradigms) {
+	if ref.flags&pfFixd != 0 || ref.pid == 0 || int(ref.pid) >= len(ps.defs) {
 		return []string{lm}
 	}
-	def := l.paradigms[ref.pid]
+	def := ps.defs[ref.pid]
 	seen := make(map[string]struct{}, len(def.endings))
 	out := make([]string, 0, len(def.endings))
 	for slot := range def.endings {
@@ -613,8 +640,8 @@ func (l *Lemmatizer) AgreeNumber(n float64, word string) string {
 
 	low := normYo(strings.ToLower(trimmed))
 	lm := l.Word(low)
-	l.ensureParadigms()
-	ref, found := l.paradigmWords[lm]
+	ps := l.getParadigmStore()
+	ref, found := ps.getWord(lm)
 	if !found || ref.flags&pfKindMask != pfKindNoun || ref.flags&pfFixd != 0 {
 		return numStr + " " + trimmed
 	}

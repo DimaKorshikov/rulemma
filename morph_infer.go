@@ -67,7 +67,7 @@ func (l *Lemmatizer) inferSuperlativeAdj(w string) (uint32, bool) {
 		if len([]rune(stem)) < 2 {
 			continue
 		}
-		if _, ok := l.lemmas[stem+"ший"]; ok {
+		if _, ok := l.lemmas.Get(stem + "ший"); ok {
 			bits := uint32(2) | (sp.gender << morphGenderShift) | (sp.num << morphNumberShift) |
 				(uint32(sp.cases) << morphCasesShift) | morphFlagHasAdj | morphFlagHasGoverned
 			return bits, true
@@ -96,8 +96,8 @@ func (l *Lemmatizer) inferFromCompoundTail(w string) (uint32, bool) {
 }
 
 func (l *Lemmatizer) inferFromParadigm(w, lemma string) (uint32, bool) {
-	l.ensureParadigms()
-	ref, found := l.paradigmWords[lemma]
+	ps := l.getParadigmStore()
+	ref, found := ps.getWord(lemma)
 	if !found {
 		return 0, false
 	}
@@ -131,10 +131,10 @@ func (l *Lemmatizer) inferFromParadigm(w, lemma string) (uint32, bool) {
 		}
 		return bits, true
 	}
-	if int(ref.pid) >= len(l.paradigms) {
+	if int(ref.pid) >= len(ps.defs) {
 		return 0, false
 	}
-	def := l.paradigms[ref.pid]
+	def := ps.defs[ref.pid]
 
 	var cases uint8
 	var sing, plur bool

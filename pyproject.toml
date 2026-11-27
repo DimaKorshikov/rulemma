@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rulemma"
-version = "0.3.1"
+version = "0.4.0"
 description = "Быстрый лемматизатор русского языка и e-commerce запросов на Go с нативными Python-биндингами (CGO), дедупликацией ключей и словарём adj->noun"
 readme = "README.md"
 license = {file = "LICENSE"}

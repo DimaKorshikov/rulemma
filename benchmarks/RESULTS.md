@@ -5,23 +5,23 @@
 
 | Библиотека | Архитектура и лицензия | Общий RU | E-Commerce | Дедупликация F1 | Холодный старт | Пик RSS RAM | 1 запрос | Батч из Python |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| **[rulemma](../README.md) 0.3.1 (Go CGO)** | Словарь + правила (Go, MIT) | 99.2% | 100.0% | 100.0% (FP=0) | 185 мс | 105.2 МБ | 131.8 мкс | **628,879 запр/с** |
-| **[pymorphy3](https://github.com/no-plagiarism/pymorphy3) (без кэша)** | OpenCorpora FST (Python, MIT) | 94.7% | 41.7% | 18.2% (FP=0) | 43 мс | 45.7 МБ | 382.2 мкс | **2,616 запр/с** |
-| **[pymorphy3](https://github.com/no-plagiarism/pymorphy3) (`lru_cache` 200k)** | OpenCorpora FST + кэш (Python, MIT) | 94.7% | 41.7% | 18.2% (FP=0) | 43 мс | 45.7 МБ | 5.2 мкс | **193,199 запр/с** |
-| **[mawo-pymorphy3](https://pypi.org/project/mawo-pymorphy3/)** | Форк pymorphy3 (Python, MIT) | 81.2% | 76.7% | 14.0% (FP=0) | 37 мс | 39.8 МБ | 467.8 мкс | **2,300 запр/с** |
-| **[SteosMorphy](https://github.com/SteosOfficial/SteosMorphy-py) (Go `ctypes`)** | Go DAWG + JSON ctypes (MIT) | 84.2% | 76.7% | 18.2% (FP=0) | 318 мс | 538.1 МБ | 3,293.1 мкс | **756 запр/с** |
-| **[Natasha](https://github.com/natasha/natasha) ([Slovnet](https://github.com/natasha/slovnet))** | Нейросеть POS + OpenCorpora (MIT) | 95.5% | 74.2% | 13.6% (FP=1) | 563 мс | 234.2 МБ | 773.5 мкс | **1,292 запр/с** |
-| **[simplemma](https://github.com/adbar/simplemma) (`ru`)** | Словарь + правила (Python, MIT) | 93.2% | 90.0% | 14.0% (FP=0) | 930 мс | 163.1 МБ | 5.4 мкс | **186,803 запр/с** |
-| **[pymystem3](https://github.com/nlpub/pymystem3) ([Яндекс MyStem](https://yandex.ru/dev/mystem/))** | C++ бинарник (проприетарный) | 92.5% | 89.2% | 22.2% (FP=0) | 489 мс | 32.8 МБ | 130.4 мкс | **7,660 запр/с** |
-| **[SnowballStemmer](https://github.com/snowballstem/snowball) (`ru`)** | Стеммер (Python, BSD-3) | 16.5% | 49.2% | 29.2% (FP=1) | 0 мс | 21.5 МБ | 118.6 мкс | **8,435 запр/с** |
+| **[rulemma](../README.md) 0.4.0 (Go CGO)** | Словарь + правила (Go, MIT) | 99.2% | 100.0% | 100.0% (FP=0) | 93 мс | 65.3 МБ | 132.3 мкс | **552,213 запр/с** |
+| **[pymorphy3](https://github.com/no-plagiarism/pymorphy3) (без кэша)** | OpenCorpora FST (Python, MIT) | 94.7% | 41.7% | 18.2% (FP=0) | 43 мс | 45.7 МБ | 394.8 мкс | **2,532 запр/с** |
+| **[pymorphy3](https://github.com/no-plagiarism/pymorphy3) (`lru_cache` 200k)** | OpenCorpora FST + кэш (Python, MIT) | 94.7% | 41.7% | 18.2% (FP=0) | 43 мс | 45.7 МБ | 5.6 мкс | **178,404 запр/с** |
+| **[mawo-pymorphy3](https://pypi.org/project/mawo-pymorphy3/)** | Форк pymorphy3 (Python, MIT) | 81.2% | 76.7% | 14.0% (FP=0) | 18 мс | 39.8 МБ | 452.0 мкс | **2,231 запр/с** |
+| **[SteosMorphy](https://github.com/SteosOfficial/SteosMorphy-py) (Go `ctypes`)** | Go DAWG + JSON ctypes (MIT) | 84.2% | 76.7% | 18.2% (FP=0) | 330 мс | 544.9 МБ | 3,165.9 мкс | **779 запр/с** |
+| **[Natasha](https://github.com/natasha/natasha) ([Slovnet](https://github.com/natasha/slovnet))** | Нейросеть POS + OpenCorpora (MIT) | 95.5% | 74.2% | 13.6% (FP=1) | 408 мс | 234.4 МБ | 818.5 мкс | **1,221 запр/с** |
+| **[simplemma](https://github.com/adbar/simplemma) (`ru`)** | Словарь + правила (Python, MIT) | 93.2% | 90.0% | 14.0% (FP=0) | 1033 мс | 163.4 МБ | 8.0 мкс | **125,178 запр/с** |
+| **[pymystem3](https://github.com/nlpub/pymystem3) ([Яндекс MyStem](https://yandex.ru/dev/mystem/))** | C++ бинарник (проприетарный) | 92.5% | 89.2% | 22.2% (FP=0) | 493 мс | 32.8 МБ | 137.2 мкс | **7,242 запр/с** |
+| **[SnowballStemmer](https://github.com/snowballstem/snowball) (`ru`)** | Стеммер (Python, BSD-3) | 16.5% | 49.2% | 29.2% (FP=1) | 0 мс | 21.8 МБ | 126.3 мкс | **7,916 запр/с** |
 
 ## Масштабирование `rulemma` на батчах (Python CGO, 7-словные запросы)
 
 | Объём батча | `lemmatize_batch` | Скорость (`lemmatize`) | `semantic_keys` | Скорость (`semantic_keys`) | Пик RSS RAM процесса |
 |---:|---:|---:|---:|---:|---:|
-| 20,000 | 0.027 с | **741,290 запр/с** | 0.027 с | **742,409 запр/с** | 108.9 МБ |
-| 100,000 | 0.141 с | **711,177 запр/с** | 0.109 с | **913,567 запр/с** | 215.7 МБ |
-| 1,000,000 | 1.417 с | **705,665 запр/с** | 1.276 с | **783,519 запр/с** | 1265.2 МБ |
+| 20,000 | 0.037 с | **547,826 запр/с** | 0.030 с | **670,457 запр/с** | 70.9 МБ |
+| 100,000 | 0.154 с | **649,785 запр/с** | 0.138 с | **724,652 запр/с** | 189.1 МБ |
+| 1,000,000 | 1.603 с | **623,888 запр/с** | 1.466 с | **682,309 запр/с** | 1161.8 МБ |
 
 ## Примечания к методике
 

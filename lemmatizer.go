@@ -9,9 +9,12 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"unicode"
 	"unicode/utf8"
 )
@@ -59,17 +62,17 @@ const (
 // Lemmatizer holds preloaded immutable dictionaries for fast concurrent Russian morphology.
 type Lemmatizer struct {
 	fsys           fs.FS
-	lemmas         map[string]string
+	lemmas         *compactStrMap
 	overrides      map[string]struct{}
-	types          map[string]GramInfo
-	adjForms       map[string]string
-	adjToNoun      map[string]string
-	morphOnce      sync.Once
-	morph          map[string]uint32
-	altLemmas      map[string]string
-	paradigmOnce   sync.Once
-	paradigms      []paradigmDef
-	paradigmWords  map[string]paradigmRef
+	types          atomic.Pointer[map[string]GramInfo]
+	adjForms       atomic.Pointer[adjFormsTable]
+	adjToNoun      atomic.Pointer[compactStrMap]
+	morphMu        sync.Mutex
+	morphTried     atomic.Bool
+	morphStore     atomic.Pointer[morphStore]
+	paradigmMu     sync.Mutex
+	paradigmTried  atomic.Bool
+	paradigmStore  atomic.Pointer[paradigmStore]
 	manifest       *Manifest
 	suffixFallback bool
 	overridesCount int
@@ -105,15 +108,58 @@ func LoadWithOptions(dataDir string, opts Options) (*Lemmatizer, error) {
 	return loadFS(os.DirFS(dataDir), dataDir, opts)
 }
 
-// LoadFS initializes a Lemmatizer from an fs.FS (such as embed.FS or os.DirFS).
+// LoadFS initializes a Lemmatizer from an fs.FS (such as embed.FS, os.DirFS, or MemoryFS).
 // If opts.ExtraOverridesPath is set, it is loaded from the local filesystem on top of base overrides.
 func LoadFS(fsys fs.FS, opts Options) (*Lemmatizer, error) {
 	return loadFS(fsys, "fs.FS", opts)
 }
 
+// LoadMemory initializes a Lemmatizer directly from in-memory dictionary byte slices
+// (e.g. files fetched on demand in WebAssembly or loaded from object storage).
+// Only lemmas.tsv.gz (or lemmas.tsv) is required; optional tables can be included here
+// or loaded later via LoadTable.
+func LoadMemory(files map[string][]byte, opts Options) (*Lemmatizer, error) {
+	return loadFS(NewMemoryFS(files), "memory", opts)
+}
+
 func loadFS(fsys fs.FS, label string, opts Options) (*Lemmatizer, error) {
+	var (
+		typesMap  map[string]GramInfo
+		adjForms  *adjFormsTable
+		adjToNoun *compactStrMap
+		auxErr    error
+		wg        sync.WaitGroup
+	)
+	loadAux := func() {
+		var err error
+		if typesMap, err = loadTypesFS(fsys); err != nil {
+			auxErr = err
+			return
+		}
+		if adjForms, err = loadAdjFormsFS(fsys); err != nil {
+			auxErr = err
+			return
+		}
+		if adjToNoun, err = loadAdjNounFS(fsys); err != nil {
+			auxErr = err
+			return
+		}
+	}
+
+	parallel := runtime.GOMAXPROCS(0) > 1
+	if parallel {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			loadAux()
+		}()
+	}
+
 	lemmas, err := loadLemmasFS(fsys, label)
 	if err != nil {
+		if parallel {
+			wg.Wait()
+		}
 		return nil, err
 	}
 	overrides := make(map[string]struct{}, 512)
@@ -121,6 +167,9 @@ func loadFS(fsys fs.FS, label string, opts Options) (*Lemmatizer, error) {
 	if _, err := fs.Stat(fsys, "overrides.tsv"); err == nil {
 		n, err := applyOverridesFS(lemmas, overrides, fsys, "overrides.tsv")
 		if err != nil {
+			if parallel {
+				wg.Wait()
+			}
 			return nil, fmt.Errorf("load overrides.tsv: %w", err)
 		}
 		ovCnt += n
@@ -128,33 +177,42 @@ func loadFS(fsys fs.FS, label string, opts Options) (*Lemmatizer, error) {
 	if opts.ExtraOverridesPath != "" {
 		n, err := applyOverrides(lemmas, overrides, opts.ExtraOverridesPath)
 		if err != nil {
+			if parallel {
+				wg.Wait()
+			}
 			return nil, fmt.Errorf("load extra overrides %s: %w", opts.ExtraOverridesPath, err)
 		}
 		ovCnt += n
 	}
-	types, err := loadTypesFS(fsys)
-	if err != nil {
-		return nil, err
+	lemmas.freeze()
+
+	if parallel {
+		wg.Wait()
+	} else {
+		loadAux()
 	}
-	adjForms, err := loadAdjFormsFS(fsys)
-	if err != nil {
-		return nil, err
+	if auxErr != nil {
+		return nil, auxErr
 	}
-	adjToNoun, err := loadAdjNounFS(fsys)
-	if err != nil {
-		return nil, err
-	}
+
 	manifest, _ := LoadManifestFS(fsys)
 	lem := &Lemmatizer{
 		fsys:           fsys,
 		lemmas:         lemmas,
 		overrides:      overrides,
-		types:          types,
-		adjForms:       adjForms,
-		adjToNoun:      adjToNoun,
 		manifest:       manifest,
 		suffixFallback: !opts.DisableSuffixFallback,
 		overridesCount: ovCnt,
+	}
+	if len(typesMap) > 0 {
+		tm := typesMap
+		lem.types.Store(&tm)
+	}
+	if adjForms != nil {
+		lem.adjForms.Store(adjForms)
+	}
+	if adjToNoun != nil {
+		lem.adjToNoun.Store(adjToNoun)
 	}
 	if opts.PreloadAll {
 		lem.Preload()
@@ -162,34 +220,143 @@ func loadFS(fsys fs.FS, label string, opts Options) (*Lemmatizer, error) {
 	return lem, nil
 }
 
+// LoadTable loads or replaces an optional dictionary table from raw (plain or .gz) bytes
+// into an already initialized Lemmatizer (concurrency-safe). Useful for on-demand lazy loading
+// in WebAssembly browsers without bundling every table into the initial .wasm binary.
+// Supported table names: adj_forms.tsv[.gz], types.tsv[.gz], adj_noun.tsv[.gz],
+// morph.tsv[.gz], alt_lemmas.tsv[.gz], paradigms.tsv[.gz].
+func (l *Lemmatizer) LoadTable(name string, data []byte) error {
+	clean := path.Base(strings.TrimSpace(name))
+	mfs := NewMemoryFS(map[string][]byte{clean: data})
+
+	switch clean {
+	case "adj_forms.tsv.gz", "adj_forms.tsv", "adj_forms.json.gz", "adj_forms.json":
+		t, err := loadAdjFormsFS(mfs)
+		if err != nil {
+			return err
+		}
+		l.adjForms.Store(t)
+		return nil
+	case "types.tsv.gz", "types.tsv", "types.json.gz", "types.json":
+		t, err := loadTypesFS(mfs)
+		if err != nil {
+			return err
+		}
+		l.types.Store(&t)
+		return nil
+	case "adj_noun.tsv.gz", "adj_noun.tsv":
+		t, err := loadAdjNounFS(mfs)
+		if err != nil {
+			return err
+		}
+		l.adjToNoun.Store(t)
+		return nil
+	case "morph.tsv.gz", "morph.tsv":
+		l.morphMu.Lock()
+		defer l.morphMu.Unlock()
+		m, err := loadMorphFS(mfs)
+		if err != nil {
+			return err
+		}
+		var alt *compactStrMap
+		if cur := l.morphStore.Load(); cur != nil {
+			alt = cur.altLemmas
+		}
+		l.morphStore.Store(&morphStore{morph: m, altLemmas: alt})
+		l.morphTried.Store(true)
+		return nil
+	case "alt_lemmas.tsv.gz", "alt_lemmas.tsv":
+		l.morphMu.Lock()
+		defer l.morphMu.Unlock()
+		a, err := loadAltLemmasFS(mfs)
+		if err != nil {
+			return err
+		}
+		var m *compactU32Map
+		if cur := l.morphStore.Load(); cur != nil {
+			m = cur.morph
+		}
+		l.morphStore.Store(&morphStore{morph: m, altLemmas: a})
+		l.morphTried.Store(true)
+		return nil
+	case "paradigms.tsv.gz", "paradigms.tsv":
+		l.paradigmMu.Lock()
+		defer l.paradigmMu.Unlock()
+		defs, words, err := loadParadigmsFS(mfs)
+		if err != nil {
+			return err
+		}
+		l.paradigmStore.Store(&paradigmStore{defs: defs, words: words})
+		l.paradigmTried.Store(true)
+		return nil
+	default:
+		return fmt.Errorf("unsupported optional table %q", name)
+	}
+}
+
 func (l *Lemmatizer) ensureMorph() {
-	l.morphOnce.Do(func() {
-		if l.fsys == nil {
-			return
+	if l.morphTried.Load() {
+		return
+	}
+	l.morphMu.Lock()
+	defer l.morphMu.Unlock()
+	if l.morphTried.Load() {
+		return
+	}
+	if l.fsys != nil {
+		var m *compactU32Map
+		var a *compactStrMap
+		if cur := l.morphStore.Load(); cur != nil {
+			m = cur.morph
+			a = cur.altLemmas
 		}
-		if m, err := loadMorphFS(l.fsys); err == nil {
-			l.morph = m
+		if m == nil {
+			if loaded, err := loadMorphFS(l.fsys); err == nil && loaded.Len() > 0 {
+				m = loaded
+			}
 		}
-		if a, err := loadAltLemmasFS(l.fsys); err == nil {
-			l.altLemmas = a
+		if a == nil {
+			if loaded, err := loadAltLemmasFS(l.fsys); err == nil && loaded.Len() > 0 {
+				a = loaded
+			}
 		}
-	})
+		if m != nil || a != nil {
+			l.morphStore.Store(&morphStore{morph: m, altLemmas: a})
+		}
+	}
+	l.morphTried.Store(true)
 }
 
 func (l *Lemmatizer) ensureParadigms() {
-	l.paradigmOnce.Do(func() {
-		if l.fsys == nil {
-			return
+	if l.paradigmTried.Load() {
+		return
+	}
+	l.paradigmMu.Lock()
+	defer l.paradigmMu.Unlock()
+	if l.paradigmTried.Load() {
+		return
+	}
+	if l.fsys != nil {
+		if defs, words, err := loadParadigmsFS(l.fsys); err == nil && words.Len() > 0 {
+			l.paradigmStore.Store(&paradigmStore{defs: defs, words: words})
 		}
-		if defs, words, err := loadParadigmsFS(l.fsys); err == nil {
-			l.paradigms = defs
-			l.paradigmWords = words
-		}
-	})
+	}
+	l.paradigmTried.Store(true)
 }
 
 // Preload eagerly loads the optional v0.3 morphology and inflection tables (normally loaded lazily on first use).
 func (l *Lemmatizer) Preload() {
+	if runtime.GOMAXPROCS(0) > 1 {
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			l.ensureParadigms()
+		}()
+		l.ensureMorph()
+		wg.Wait()
+		return
+	}
 	l.ensureMorph()
 	l.ensureParadigms()
 }
@@ -199,22 +366,44 @@ func (l *Lemmatizer) Manifest() *Manifest {
 	return l.manifest
 }
 
+func (l *Lemmatizer) getTypesMap() map[string]GramInfo {
+	if p := l.types.Load(); p != nil {
+		return *p
+	}
+	return nil
+}
+
+func (l *Lemmatizer) lookupAdjToNoun(lm string) (string, bool) {
+	if t := l.adjToNoun.Load(); t != nil {
+		return t.Get(lm)
+	}
+	return "", false
+}
+
 // Stats returns dictionary entry counts.
 func (l *Lemmatizer) Stats() Stats {
-	pCnt := 0
-	if len(l.paradigms) > 1 {
-		pCnt = len(l.paradigms) - 1
+	pCnt, pwCnt := 0, 0
+	if ps := l.paradigmStore.Load(); ps != nil {
+		if len(ps.defs) > 1 {
+			pCnt = len(ps.defs) - 1
+		}
+		pwCnt = ps.words.Len()
+	}
+	mCnt, altCnt := 0, 0
+	if ms := l.morphStore.Load(); ms != nil {
+		mCnt = ms.morph.Len()
+		altCnt = ms.altLemmas.Len()
 	}
 	return Stats{
-		Lemmas:        len(l.lemmas),
-		Types:         len(l.types),
-		AdjForms:      len(l.adjForms),
-		AdjNoun:       len(l.adjToNoun),
+		Lemmas:        l.lemmas.Len(),
+		Types:         len(l.getTypesMap()),
+		AdjForms:      l.adjForms.Load().Len(),
+		AdjNoun:       l.adjToNoun.Load().Len(),
 		Overrides:     l.overridesCount,
-		Morph:         len(l.morph),
-		AltLemmas:     len(l.altLemmas),
+		Morph:         mCnt,
+		AltLemmas:     altCnt,
 		Paradigms:     pCnt,
-		ParadigmWords: len(l.paradigmWords),
+		ParadigmWords: pwCnt,
 	}
 }
 
@@ -331,7 +520,7 @@ func (l *Lemmatizer) LookupWord(word string) (string, string) {
 	if !hasCyrillic(w) {
 		return w, SourceOOV
 	}
-	if lm, ok := l.lemmas[w]; ok {
+	if lm, ok := l.lemmas.Get(w); ok {
 		if _, isOv := l.overrides[w]; isOv {
 			return lm, SourceOverride
 		}
@@ -339,7 +528,7 @@ func (l *Lemmatizer) LookupWord(word string) (string, string) {
 	}
 	wn := normYo(w)
 	if wn != w {
-		if lm, ok := l.lemmas[wn]; ok {
+		if lm, ok := l.lemmas.Get(wn); ok {
 			if _, isOv := l.overrides[wn]; isOv {
 				return lm, SourceOverride
 			}
@@ -381,7 +570,7 @@ func (l *Lemmatizer) Word(word string) string {
 
 // isCanonicalLemma reports whether cand is a known base lemma in l.lemmas (maps to itself).
 func (l *Lemmatizer) isCanonicalLemma(cand string) bool {
-	lm, ok := l.lemmas[cand]
+	lm, ok := l.lemmas.Get(cand)
 	return ok && lm == cand
 }
 
@@ -486,7 +675,7 @@ func (l *Lemmatizer) fallbackSuffix(w string) (string, bool) {
 				}
 				// Superlative adjectives mapped to base degree in l.lemmas (e.g. высший->высокий, лучшего->хороший)
 				if strings.HasSuffix(stem, "ш") {
-					if mapped, ok := l.lemmas[stem+"ий"]; ok && (strings.HasSuffix(mapped, "ый") || strings.HasSuffix(mapped, "ий") || strings.HasSuffix(mapped, "ой")) {
+					if mapped, ok := l.lemmas.Get(stem + "ий"); ok && (strings.HasSuffix(mapped, "ый") || strings.HasSuffix(mapped, "ий") || strings.HasSuffix(mapped, "ой")) {
 						return mapped, true
 					}
 				}
@@ -723,7 +912,7 @@ func (l *Lemmatizer) AdjToNoun(word string) (string, bool) {
 	if lm == "" {
 		return "", false
 	}
-	if noun, ok := l.adjToNoun[lm]; ok {
+	if noun, ok := l.lookupAdjToNoun(lm); ok {
 		return noun, true
 	}
 	return lm, false
@@ -779,7 +968,7 @@ func (l *Lemmatizer) LemmatizeAllWithStop(text string, stop map[string]struct{})
 			keys = append(keys, lm)
 		}
 		sem := lm
-		if noun, ok := l.adjToNoun[lm]; ok {
+		if noun, ok := l.lookupAdjToNoun(lm); ok {
 			sem = noun
 		}
 		if _, dup := seenSem[sem]; !dup {
@@ -820,7 +1009,7 @@ func (l *Lemmatizer) SemanticKeyWithStop(text string, stop map[string]struct{}) 
 				continue
 			}
 		}
-		if noun, ok := l.adjToNoun[lm]; ok {
+		if noun, ok := l.lookupAdjToNoun(lm); ok {
 			lm = noun
 		}
 		if _, dup := seen[lm]; dup {
@@ -835,18 +1024,22 @@ func (l *Lemmatizer) SemanticKeyWithStop(text string, stop map[string]struct{}) 
 
 // lookupTypeToken resolves a single-word product type (singular or plural) against l.types.
 func (l *Lemmatizer) lookupTypeToken(tok string) (GramInfo, bool) {
-	if g, ok := l.types[tok]; ok && g.Number != "" {
+	types := l.getTypesMap()
+	if len(types) == 0 {
+		return GramInfo{}, false
+	}
+	if g, ok := types[tok]; ok && g.Number != "" {
 		return g, true
 	}
 	tn := normYo(tok)
 	if tn != tok {
-		if g, ok := l.types[tn]; ok && g.Number != "" {
+		if g, ok := types[tn]; ok && g.Number != "" {
 			return g, true
 		}
 	}
 	lm := l.Word(tn)
 	if lm != "" && lm != tn {
-		if g, ok := l.types[lm]; ok && g.Number != "" {
+		if g, ok := types[lm]; ok && g.Number != "" {
 			if g.Number == "plur" {
 				return g, true
 			}
@@ -867,7 +1060,11 @@ func (l *Lemmatizer) TypeGram(typeName string) (GramInfo, bool) {
 	if tn == "" {
 		return GramInfo{}, false
 	}
-	if g, ok := l.types[tn]; ok && g.Number != "" {
+	types := l.getTypesMap()
+	if len(types) == 0 {
+		return GramInfo{}, false
+	}
+	if g, ok := types[tn]; ok && g.Number != "" {
 		return g, true
 	}
 	fields := strings.Fields(tn)
@@ -915,8 +1112,7 @@ func (l *Lemmatizer) AgreeAdjectiveGram(adj string, gram GramInfo) (string, bool
 	if gram.Number == "plur" {
 		gender = ""
 	}
-	key := lemma + "|" + gender + "|" + gram.Number
-	form, ok := l.adjForms[key]
+	form, ok := l.adjForms.Load().Get(lemma, gender, gram.Number)
 	if !ok {
 		return adj, false
 	}

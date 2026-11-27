@@ -36,7 +36,7 @@ class TestRuLemmaPython(unittest.TestCase):
 
     def test_backend_version_and_abi(self) -> None:
         self.assertEqual(self.lem.backend, "native")
-        self.assertEqual(__version__, "0.3.1")
+        self.assertEqual(__version__, "0.4.0")
         self.assertEqual(self.lem.abi_version, 1)
         self.assertEqual(self.lem.library_version, __version__)
         st = self.lem.stats()

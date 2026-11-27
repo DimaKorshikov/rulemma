@@ -3,6 +3,33 @@
 Все заметные изменения в `rulemma` фиксируются в этом файле.
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), а проект следует [Semantic Versioning 2.0.0](https://semver.org/lang/ru/).
 
+## [0.4.0] - 2026-11-27
+
+Минорный релиз архитектуры памяти, холодного старта и WebAssembly (**100% обратная совместимость** Go API, C-ABI `v1`, Python API, CLI и формата словарей `data/*.tsv.gz` `schema_version=1`, `dict_version: 2026.11.5`).
+
+### Изменено (память и скорость загрузки)
+
+- **Байтовая арена без GC-указателей (`arena.go`, `dict.go`, `morph.go`, `inflect.go`):**
+  - Внутренние словарные таблицы (`lemmas`, `adj_noun`, `morph`, `alt_lemmas`, `paradigmWords`) переведены с Go `map[string]*` на плоскую байтовую арену + компактные non-pointer хеш-таблицы с открытой адресацией (`compactStrMap`, `compactU32Map`) и аппаратным `hash/maphash` (`runtime.aeshash`).
+  - В `compactStrMap` добавлен однопроходный интернинг identity-форм (`55%` словаря `lemmas`), повторяющихся значений и канонических лемм — вся текстовая арена `lemmas` укладывается в `~3.8 МБ` без единого указателя для GC.
+  - Для `adj_forms.tsv.gz` (`74 098` форм) реализована специализированная 4-слотовая таблица `adjFormsTable`, индексируемая по `18 776` уникальным основам (вместо `74 098` составных ключей `base|gender|number` — без строковой конкатенации в `AgreeAdjective`).
+  - Потоковый zero-alloc парсер `bufio.Scanner.Bytes()` + быстрая проверка `isFastLowerNoYo` и буферизованный `gzip.NewReader` (`32 КБ`) убрали временные буферы `io.ReadAll` и сотни тысяч heap-аллокаций; загрузка независимых таблиц в `Load` и `Preload` распараллелена при `GOMAXPROCS > 1`.
+- **Измеренный эффект (`v0.3.1 -> v0.4.0`):**
+  - **Go `Load("data")`:** `187.2 мс -> 59.0 мс` (**`3.2×` быстрее**), `HeapAlloc`: `37.1 МБ -> 11.3 МБ` (**`3.3×` меньше**), `HeapObjects`: `297 491 -> 5 522` (**`54×` меньше**), Go RSS: `42.0 МБ -> 15.6 МБ` (прирост всего `+12.0 МБ`).
+  - **Go `Preload()` (все 8 таблиц):** `58.8 мс -> 29.8 мс`, `HeapAlloc`: `50.6 МБ -> 18.0 МБ`, Go RSS: `79.0 МБ -> 29.2 МБ` (`-50 МБ`).
+  - **Python `RuLemma()`:** холодный старт `181 мс -> 55.5 мс` (`93 мс` в бенчмарке с `ctypes.CDLL`), RSS чистого процесса `56.4 МБ -> 30.8 МБ` (со всеми 8 таблицами `93.5 МБ -> 42.3 МБ`); в бенчмарке `compare_models.py` базовый RSS снизился с `62.4 МБ` до **`37.1 МБ`** (меньше `pymorphy3` с его `45.0 МБ`), пик на 20k батче — с `105.2 МБ` до **`65.3 МБ`** (`-39.9 МБ`).
+
+### Добавлено (WebAssembly и динамическая загрузка)
+
+- **`MemoryFS`, `LoadMemory` и потокобезопасная `LoadTable` (`memfs.go`, `lemmatizer.go`):**
+  - `NewMemoryFS(files)` / `LoadMemory(files, opts)` позволяют инициализировать движок напрямую из `map[string][]byte` (HTTP `fetch()` в браузере, объектное хранилище, тесты).
+  - `lem.LoadTable(name, data)` позволяет дозагружать опциональные таблицы (`adj_forms`, `types`, `adj_noun`, `morph`, `alt_lemmas`, `paradigms`) на лету в уже работающий `*Lemmatizer` (lock-free чтение через `atomic.Pointer`, проверено под `-race`).
+- **Опциональный лёгкий embed (`data/embed_core.go`, build tag `-tags rulemma_core`):**
+  - Сборка с `-tags rulemma_core` встраивает в `rulemma/embedded` только ядро (`lemmas`, `adj_noun`, `types`, `overrides`, `manifest` = **`1.2 МБ`** вместо `2.6 МБ`); дефолтная сборка без тега по-прежнему включает все 8 таблиц.
+- **Референсный WebAssembly-модуль (`cmd/rulemma-wasm/`) и цель `make build-wasm`:**
+  - 3 профиля сборки: `rulemma-thin.wasm` (`3.98 МБ` raw / **`1.09 МБ` gzip-9**, без встроенных словарей, on-demand `rulemmaInit`/`rulemmaLoadTable`), `rulemma-core.wasm` (`5.25 МБ` raw / **`2.29 МБ` gzip-9**), `rulemma-full.wasm` (`6.59 МБ` raw / **`3.63 МБ` gzip-9**).
+  - В живом замере Node.js (против `v0.3.0` WASM `881.4 мс` старта и `156.8 МБ` линейной памяти после `inflect`): `thin` стартует за **`258.5 мс`** (`3.4×` быстрее) и занимает **`46.1 МБ`** памяти (`3.4×` меньше, `-110.7 МБ`); `full` стартует за **`317.2 мс`** (`2.8×` быстрее) и занимает **`80.7 МБ`** (`-76.1 МБ`).
+
 ## [0.3.1] - 2026-11-27
 
 Патч-релиз качества словарей, вывода морфологии на OOV-формах и однопроходного `lemmatize_all` с техпрофилем (100% обратная совместимость Go API, C-ABI v1 append-only, Python API и CLI).
@@ -191,6 +218,7 @@
 - Нативные Python-биндинги (`ctypes` → `librulemma.so`/`.dylib`) и потоковый CLI (`info`, `lemmatize`, `tsv`, `bench`, `seoname`).
 - Воспроизводимый бенчмарк против `pymorphy3`, `Natasha`, `simplemma`, `pymystem3` и `SnowballStemmer`.
 
+[0.4.0]: https://github.com/DimaKorshikov/rulemma/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/DimaKorshikov/rulemma/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/DimaKorshikov/rulemma/compare/v0.2.2...v0.3.0
 [0.2.3]: https://github.com/DimaKorshikov/rulemma/compare/v0.2.2...v0.2.3
